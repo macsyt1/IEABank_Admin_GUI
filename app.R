@@ -1,14 +1,6 @@
 # ============================================================
 # admin_app.R — Admin GUI del banco de ítems (v3, identidad IEA)
 # ------------------------------------------------------------
-# UI con bslib (Bootstrap 5, paleta IEA). Banner con logo + título.
-# Navegación por botones (no tabs): "Editar/Borrar/Añadir" (con sidebar)
-# y "Cargar Excel" (sin sidebar). Versión con easter egg (10 clics -> iea.nl).
-#
-# Requisitos: el logo en  www/iea_logo.png  dentro del proyecto.
-# Variables de entorno:
-#   SUPABASE_HOST, SUPABASE_PORT, SUPABASE_DB, SUPABASE_ED_USER, SUPABASE_ED_PWD
-# ============================================================
 
 library(shiny)
 library(bslib)
@@ -99,7 +91,7 @@ supabase_update_password <- function(access_token, new_password) {
 
 supabase_send_password_reset <- function(email) {
   
-  reset_url <- "https://j15vm28ol8.github.io/IEABank_Admin_GUI/reset-password.html"
+  reset_url <- "https://macsyt1.github.io/IEABank_Admin_GUI/reset-password.html"
   
   req <- request(
     paste0(SUPABASE_URL, "/auth/v1/recover")
