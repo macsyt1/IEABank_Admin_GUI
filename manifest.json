@@ -1965,31 +1965,32 @@
       "Repository": "https://packagemanager.posit.co/cran/latest",
       "description": {
         "Package": "rlang",
-        "Version": "1.2.0",
+        "Version": "1.3.0",
         "Title": "Functions for Base Types and Core R and 'Tidyverse' Features",
-        "Description": "A toolbox for working with base types, core R features\n  like the condition system, and core 'Tidyverse' features like tidy\n  evaluation.",
-        "Authors@R": "c(\n    person(\"Lionel\", \"Henry\", ,\"lionel@posit.co\", c(\"aut\", \"cre\")),\n    person(\"Hadley\", \"Wickham\", ,\"hadley@posit.co\", \"aut\"),\n    person(given = \"mikefc\",\n           email = \"mikefc@coolbutuseless.com\",\n           role = \"cph\",\n           comment = \"Hash implementation based on Mike's xxhashlite\"),\n    person(given = \"Yann\",\n           family = \"Collet\",\n           role = \"cph\",\n           comment = \"Author of the embedded xxHash library\"),\n    person(given = \"Posit, PBC\", role = c(\"cph\", \"fnd\"))\n    )",
+        "Authors@R": "c(\n    person(\"Lionel\", \"Henry\", , \"lionel@posit.co\", role = c(\"aut\", \"cre\")),\n    person(\"Hadley\", \"Wickham\", , \"hadley@posit.co\", role = \"aut\"),\n    person(\"mikefc\", , , \"mikefc@coolbutuseless.com\", role = \"cph\",\n           comment = \"Hash implementation based on Mike's xxhashlite\"),\n    person(\"Yann\", \"Collet\", role = \"cph\",\n           comment = \"Author of the embedded xxHash library\"),\n    person(\"Posit, PBC\", role = c(\"cph\", \"fnd\"))\n  )",
+        "Description": "A toolbox for working with base types, core R features like\n    the condition system, and core 'Tidyverse' features like tidy\n    evaluation.",
         "License": "MIT + file LICENSE",
-        "ByteCompile": "true",
-        "Biarch": "true",
+        "URL": "https://rlang.r-lib.org, https://github.com/r-lib/rlang",
+        "BugReports": "https://github.com/r-lib/rlang/issues",
         "Depends": "R (>= 4.0.0)",
         "Imports": "utils",
         "Suggests": "cli (>= 3.1.0), covr, crayon, desc, fs, glue, knitr,\nmagrittr, methods, pillar, pkgload, rmarkdown, stats, testthat\n(>= 3.3.2), tibble, usethis, vctrs (>= 0.2.3), withr",
         "Enhances": "winch",
-        "Encoding": "UTF-8",
-        "RoxygenNote": "7.3.3",
-        "URL": "https://rlang.r-lib.org, https://github.com/r-lib/rlang",
-        "BugReports": "https://github.com/r-lib/rlang/issues",
+        "Biarch": "true",
+        "ByteCompile": "true",
         "Config/build/compilation-database": "true",
-        "Config/testthat/edition": "3",
         "Config/Needs/website": "dplyr, tidyverse/tidytemplate",
+        "Config/roxygen2/version": "8.0.0",
+        "Config/testthat/edition": "3",
+        "Config/testthat/parallel": "true",
+        "Encoding": "UTF-8",
         "NeedsCompilation": "yes",
-        "Packaged": "2026-04-02 12:23:10 UTC; lionel",
+        "Packaged": "2026-07-01 15:54:09 UTC; lionel",
         "Author": "Lionel Henry [aut, cre],\n  Hadley Wickham [aut],\n  mikefc [cph] (Hash implementation based on Mike's xxhashlite),\n  Yann Collet [cph] (Author of the embedded xxHash library),\n  Posit, PBC [cph, fnd]",
         "Maintainer": "Lionel Henry <lionel@posit.co>",
         "Repository": "RSPM",
-        "Date/Publication": "2026-04-06 10:40:02 UTC",
-        "Built": "R 4.6.0; x86_64-w64-mingw32; 2026-04-23 22:45:04 UTC; windows",
+        "Date/Publication": "2026-07-05 08:40:02 UTC",
+        "Built": "R 4.6.0; x86_64-w64-mingw32; 2026-07-06 15:29:04 UTC; windows",
         "Archs": "x64",
         "RemoteType": "standard",
         "RemoteRef": "rlang",
@@ -1997,7 +1998,7 @@
         "RemoteRepos": "https://packagemanager.posit.co/cran/latest",
         "RemoteReposName": "CRAN",
         "RemotePkgPlatform": "x86_64-w64-mingw32",
-        "RemoteSha": "1.2.0"
+        "RemoteSha": "1.3.0"
       }
     },
     "rmarkdown": {
@@ -2549,16 +2550,25 @@
       "checksum": "6a7bd078e54ba207d7068177facedc81"
     },
     ".Rprofile": {
-      "checksum": "098afd855890670a74ef6706c917854e"
-    },
-    "app - Copy.R": {
-      "checksum": "d3671f559f48ab0a9362870af47bec06"
+      "checksum": "6b694480a1347f4873227f20c28ec8ae"
     },
     "app.R": {
-      "checksum": "2341ccfd9af8792c53dae5458caf349d"
+      "checksum": "2024688c4eef6fc32f9254e50c1b3eef"
+    },
+    "Cards_design.xlsx": {
+      "checksum": "6966723131c0c460010fe38a44a9d05f"
+    },
+    "docs/.nojekyll": {
+      "checksum": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "docs/create-password.html": {
+      "checksum": "688503c2383b14789e71f28fc45c1166"
+    },
+    "docs/reset-password.html": {
+      "checksum": "28aafbf803432fce98ce9967f784c8ac"
     },
     "www/iea_logo.png": {
-      "checksum": "cead73ca3a6dacac1bf830ba216d32fb"
+      "checksum": "89fb89be975b9b8a9601da6cdab8400e"
     }
   },
   "users": null
