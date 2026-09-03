@@ -2,7 +2,6 @@
 # IEABank Admin GUI
 # ============================================================
 
-
 library(shiny)
 library(bslib)
 library(DBI)
@@ -16,7 +15,7 @@ library(jsonlite)
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0) b else a
 
-APP_VERSION <- "1.1.0"
+APP_VERSION <- "1.1.1"
 IEA_RED  <- "#E2231A"
 IEA_GRAY <- "#54565A"
 
@@ -265,10 +264,11 @@ make_input <- function(f, value = NULL, mode = "add") {
   }
 
   if (!is.null(f$fk)) {
+    choices <- c("", fk_choices(f$fk))
     return(
       selectizeInput(
         id, f$name,
-        choices = c("" = "", fk_choices(f$fk)),
+        choices = choices,
         selected = as.character(value %||% "")
       )
     )
@@ -482,116 +482,83 @@ do_load <- function(data, modified_by) {
 
     if (has("admin")) {
       run(sprintf(
-        "insert into admin (admin_id,study,phase,year,instrument,target,cycle,modified_by)
-         select admin_id,study,nullif(phase,''),year::smallint,nullif(instrument,''),nullif(target,''),nullif(cycle,''),%s
-         from stg_admin", mb
+        "insert into admin (admin_id,study,phase,year,instrument,target,cycle,modified_by) select admin_id,study,nullif(phase,''),year::smallint,nullif(instrument,''),nullif(target,''),nullif(cycle,''),%s from stg_admin",
+        mb
       ))
     }
 
     if (has("category")) {
       run(sprintf(
-        "insert into category (category_id,category_name,modified_by)
-         select category_id,category_name,%s from stg_category", mb
+        "insert into category (category_id,category_name,modified_by) select category_id,category_name,%s from stg_category",
+        mb
       ))
     }
 
     if (has("item_id")) {
       run(sprintf(
-        "insert into item_id (item_uid,item_name,category_id,modified_by)
-         select item_uid,item_name,category_id,%s from stg_item_id", mb
+        "insert into item_id (item_uid,item_name,category_id,modified_by) select item_uid,item_name,category_id,%s from stg_item_id",
+        mb
       ))
     }
 
     if (has("miss_scheme")) {
       run(sprintf(
-        "insert into miss_scheme (miss_id,modified_by)
-         select miss_id,%s from stg_miss_scheme", mb
+        "insert into miss_scheme (miss_id,modified_by) select miss_id,%s from stg_miss_scheme",
+        mb
       ))
     }
 
     if (has("miss_scheme_value")) {
       run(sprintf(
-        "insert into miss_scheme_value (miss_id,value,category,modified_by)
-         select miss_id,value::smallint,category,%s from stg_miss_scheme_value", mb
+        "insert into miss_scheme_value (miss_id,value,category,modified_by) select miss_id,value::smallint,category,%s from stg_miss_scheme_value",
+        mb
       ))
     }
 
     if (has("value_scheme")) {
       run(sprintf(
-        "insert into value_scheme (response_id,modified_by)
-         select response_id,%s from stg_value_scheme", mb
+        "insert into value_scheme (response_id,modified_by) select response_id,%s from stg_value_scheme",
+        mb
       ))
     }
 
     if (has("value_scheme_value")) {
       run(sprintf(
-        "insert into value_scheme_value (response_id,value,label,modified_by)
-         select response_id,value::smallint,label,%s from stg_value_scheme_value", mb
+        "insert into value_scheme_value (response_id,value,label,modified_by) select response_id,value::smallint,label,%s from stg_value_scheme_value",
+        mb
       ))
     }
 
     if (has("scale")) {
-      run(
-        "insert into scale (scale_uid,scale_name)
-         select scale_uid,scale_name from stg_scale"
-      )
+      run("insert into scale (scale_uid,scale_name) select scale_uid,scale_name from stg_scale")
     }
 
     if (has("scale_version")) {
       run(sprintf(
-        "insert into scale_version (scale_id,scale_description,scale_uid,scale_var,scale_varname,modified_by)
-         select scale_id,scale_description,nullif(scale_uid,''),nullif(scale_var,''),nullif(scale_varname,''),%s
-         from stg_scale_version", mb
+        "insert into scale_version (scale_id,scale_description,scale_uid,scale_var,scale_varname,modified_by) select scale_id,scale_description,nullif(scale_uid,''),nullif(scale_var,''),nullif(scale_varname,''),%s from stg_scale_version",
+        mb
       ))
     }
 
     if (has("item_admin")) {
       run(sprintf(
-        "insert into item_admin (
-           item_admin_id,item_var,admin_id,item_uid,varname,dataset_label,
-           wording_question,wording_item,wording_instruction,wording_context,
-           wording_heading,type,miss_id,response_id,puf,modified_by
-         )
-         select
-           item_admin_id,item_var,admin_id,item_uid,nullif(varname,''),nullif(dataset_label,''),
-           nullif(wording_question,''),nullif(wording_item,''),nullif(wording_instruction,''),
-           nullif(wording_context,''),nullif(wording_heading,''),type,nullif(miss_id,''),
-           nullif(response_id,''),puf::boolean,%s
-         from stg_item_admin", mb
+        "insert into item_admin (item_admin_id,item_var,admin_id,item_uid,varname,dataset_label,wording_question,wording_item,wording_instruction,wording_context,wording_heading,type,miss_id,response_id,puf,modified_by) select item_admin_id,item_var,admin_id,item_uid,nullif(varname,''),nullif(dataset_label,''),nullif(wording_question,''),nullif(wording_item,''),nullif(wording_instruction,''),nullif(wording_context,''),nullif(wording_heading,''),type,nullif(miss_id,''),nullif(response_id,''),puf::boolean,%s from stg_item_admin",
+        mb
       ))
     }
 
     if (has("item_example")) {
-      run(
-        "insert into item_example (item_admin_id,admin_id,path,label)
-         select item_admin_id,admin_id,path,nullif(label,'') from stg_item_example"
-      )
+      run("insert into item_example (item_admin_id,admin_id,path,label) select item_admin_id,admin_id,path,nullif(label,'') from stg_item_example")
     }
 
     if (has("scale_items")) {
       run(
-        "do $$
-         declare n int;
-         begin
-           select count(*) into n
-           from stg_scale_items s
-           left join item_admin ia
-             on ia.item_admin_id = s.item_admin_id
-            and ia.admin_id = s.admin_id
-           where ia.item_admin_pk is null;
-           if n > 0 then
-             raise exception 'scale_items: % row(s) reference an item administration that does not exist', n;
-           end if;
-         end $$;"
+        "do $$ declare n int; begin select count(*) into n from stg_scale_items s left join item_admin ia on ia.item_admin_id = s.item_admin_id and ia.admin_id = s.admin_id where ia.item_admin_pk is null; if n > 0 then raise exception 'scale_items: % row(s) reference an item administration that does not exist', n; end if; end $$;"
       )
 
       run(sprintf(
-        "insert into scale_items (scale_id,item_admin_pk,modified_by)
-         select s.scale_id,ia.item_admin_pk,%s
-         from stg_scale_items s
-         join item_admin ia
-           on ia.item_admin_id = s.item_admin_id
-          and ia.admin_id = s.admin_id", mb
+        "insert into scale_items (scale_id,item_admin_pk,modified_by) select s.scale_id,ia.item_admin_pk,%s from stg_scale_items s join item_admin ia on ia.item_admin_id = s.item_admin_id and ia.admin_id = s.admin_id",
+        mb
       ))
     }
 
@@ -624,14 +591,12 @@ iea_theme <- bs_theme(version = 5, primary = IEA_RED, secondary = IEA_GRAY)
 
 iea_css <- sprintf("
 :root { --iea-red:%s; --iea-gray:%s; }
-.iea-banner{ position:relative; display:flex; align-items:center; justify-content:center;
-  padding:14px 24px; background:#fff; border-bottom:4px solid var(--iea-red); margin-bottom:4px; }
+.iea-banner{ position:relative; display:flex; align-items:center; justify-content:center; padding:14px 24px; background:#fff; border-bottom:4px solid var(--iea-red); margin-bottom:4px; }
 .iea-logo{ position:absolute; left:24px; height:54px; }
 .iea-title{ font-size:1.6rem; font-weight:700; color:var(--iea-gray); text-align:center; letter-spacing:.3px; }
 .iea-version{ position:absolute; right:24px; bottom:10px; font-size:.78rem; color:#9a9a9a; cursor:pointer; user-select:none; }
 .iea-nav{ display:flex; gap:14px; justify-content:center; margin:18px 0 22px; flex-wrap:wrap; }
-.iea-navbtn{ border:2px solid var(--iea-gray); background:#fff; color:var(--iea-gray);
-  font-weight:600; padding:12px 24px; border-radius:12px; transition:all .15s; }
+.iea-navbtn{ border:2px solid var(--iea-gray); background:#fff; color:var(--iea-gray); font-weight:600; padding:12px 24px; border-radius:12px; transition:all .15s; }
 .iea-navbtn:hover{ border-color:var(--iea-red); color:var(--iea-red); }
 .iea-navbtn.active{ background:var(--iea-red); border-color:var(--iea-red); color:#fff; }
 .iea-navbtn .fa, .iea-navbtn .fas{ margin-right:8px; }
@@ -689,22 +654,10 @@ portal_ui <- function() {
     div(class = "editor-bar", textOutput("logged_user")),
     div(
       class = "iea-nav",
-      actionButton(
-        "nav_edit", tagList(icon("table"), "Edit / Delete / Add"),
-        class = "iea-navbtn active"
-      ),
-      actionButton(
-        "nav_load", tagList(icon("upload"), "Upload Excel"),
-        class = "iea-navbtn"
-      ),
-      actionButton(
-        "change_password_btn", tagList(icon("key"), "Change password"),
-        class = "iea-navbtn"
-      ),
-      actionButton(
-        "logout_btn", tagList(icon("sign-out-alt"), "Sign out"),
-        class = "iea-navbtn"
-      )
+      actionButton("nav_edit", tagList(icon("table"), "Edit / Delete / Add"), class = "iea-navbtn active"),
+      actionButton("nav_load", tagList(icon("upload"), "Upload Excel"), class = "iea-navbtn"),
+      actionButton("change_password_btn", tagList(icon("key"), "Change password"), class = "iea-navbtn"),
+      actionButton("logout_btn", tagList(icon("sign-out-alt"), "Sign out"), class = "iea-navbtn")
     ),
     navset_hidden(
       id = "mode",
@@ -714,11 +667,7 @@ portal_ui <- function() {
           sidebar = sidebar(
             title = "Actions",
             width = 290,
-            selectInput(
-              "table", "Table",
-              choices = TABLE_CHOICES,
-              selected = "admin"
-            ),
+            selectInput("table", "Table", choices = TABLE_CHOICES, selected = "admin"),
             div(
               style = "display:flex;flex-direction:column;gap:8px;",
               actionButton("add", "Add row", icon = icon("plus"), class = "btn-primary w-100"),
@@ -726,10 +675,7 @@ portal_ui <- function() {
               actionButton("del", "Delete Selected", icon = icon("trash"), class = "btn-outline-danger w-100")
             )
           ),
-          card(
-            card_header(textOutput("table_title")),
-            DTOutput("grid")
-          )
+          card(card_header(textOutput("table_title")), DTOutput("grid"))
         )
       ),
       nav_panel(
@@ -737,16 +683,9 @@ portal_ui <- function() {
         card(
           card_header("Massive upload via Excel"),
           p("The template contains only the Core and Scales tables exposed in this Admin GUI."),
-          downloadButton(
-            "dl_template",
-            paste0("Download template (", length(SHEET_SPEC), " sheets)"),
-            class = "btn-outline-secondary"
-          ),
+          downloadButton("dl_template", paste0("Download template (", length(SHEET_SPEC), " sheets)"), class = "btn-outline-secondary"),
           hr(),
-          fileInput(
-            "xlsx", "Upload the Excel file (mass upload)",
-            accept = ".xlsx", width = "100%"
-          ),
+          fileInput("xlsx", "Upload the Excel file (mass upload)", accept = ".xlsx", width = "100%"),
           uiOutput("load_ui")
         )
       )
@@ -754,9 +693,6 @@ portal_ui <- function() {
   )
 }
 
-# ============================================================
-# UI
-# ============================================================
 ui <- page_fluid(
   theme = iea_theme,
   tags$head(tags$style(HTML(iea_css))),
@@ -764,9 +700,6 @@ ui <- page_fluid(
   tags$script(HTML(iea_js))
 )
 
-# ============================================================
-# Server
-# ============================================================
 server <- function(input, output, session) {
   current_user <- reactiveVal(NULL)
   current_auth <- reactiveVal(NULL)
@@ -778,11 +711,7 @@ server <- function(input, output, session) {
 
   output$login_message <- renderUI({
     req(login_error())
-    div(
-      class = "text-danger",
-      style = "margin-top:14px;text-align:center;",
-      login_error()
-    )
+    div(class = "text-danger", style = "margin-top:14px;text-align:center;", login_error())
   })
 
   observeEvent(input$forgot_password_btn, {
@@ -802,23 +731,21 @@ server <- function(input, output, session) {
 
   observeEvent(input$send_reset_btn, {
     email <- trimws(input$reset_email %||% "")
-
     if (!nzchar(email)) {
       showNotification("Enter your email address.", type = "error")
       return()
     }
-
     try(supabase_send_password_reset(email), silent = TRUE)
     removeModal()
     showNotification(
       "If this email address is registered, a password recovery link has been requested.",
-      type = "message", duration = 8
+      type = "message",
+      duration = 8
     )
   })
 
   observeEvent(input$login_btn, {
     login_error(NULL)
-
     email <- trimws(input$login_email %||% "")
     password <- input$login_password %||% ""
 
@@ -888,10 +815,7 @@ server <- function(input, output, session) {
       removeModal()
       showNotification("Password updated successfully.", type = "message")
     } else {
-      showNotification(
-        "It was not possible to update the password. Please sign in again and retry.",
-        type = "error"
-      )
+      showNotification("It was not possible to update the password. Please sign in again and retry.", type = "error")
     }
   })
 
@@ -910,10 +834,7 @@ server <- function(input, output, session) {
   output$logged_user <- renderText({
     user <- current_user()
     req(user)
-    paste0(
-      "Signed in as: ", user$first_name, " ", user$last_name,
-      " (", user$role, ")"
-    )
+    paste0("Signed in as: ", user$first_name, " ", user$last_name, " (", user$role, ")")
   })
 
   observeEvent(input$nav_edit, nav_select("mode", "edit"))
@@ -968,7 +889,6 @@ server <- function(input, output, session) {
 
   require_author <- function() {
     user <- current_user()
-
     if (is.null(user) || !isTRUE(user$active)) {
       showModal(
         modalDialog(
@@ -979,7 +899,6 @@ server <- function(input, output, session) {
       )
       return(FALSE)
     }
-
     TRUE
   }
 
@@ -1017,13 +936,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$edit, {
     if (is.null(selected_row())) {
-      showModal(
-        modalDialog(
-          "Select a row first.",
-          easyClose = TRUE,
-          footer = modalButton("Close")
-        )
-      )
+      showModal(modalDialog("Select a row first.", easyClose = TRUE, footer = modalButton("Close")))
     } else if (require_author()) {
       show_form("edit")
     }
@@ -1141,13 +1054,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$del, {
     if (is.null(selected_row())) {
-      showModal(
-        modalDialog(
-          "Select a row first.",
-          easyClose = TRUE,
-          footer = modalButton("Close")
-        )
-      )
+      showModal(modalDialog("Select a row first.", easyClose = TRUE, footer = modalButton("Close")))
       return()
     }
 
