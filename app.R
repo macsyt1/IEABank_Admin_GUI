@@ -2,7 +2,6 @@
 # IEABank Admin GUI
 # ============================================================
 
-
 library(shiny)
 library(bslib)
 library(DBI)
@@ -16,7 +15,7 @@ library(jsonlite)
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0) b else a
 
-APP_VERSION <- "1.1.1"
+APP_VERSION <- "1.2.0"
 IEA_RED  <- "#E2231A"
 IEA_GRAY <- "#54565A"
 
@@ -86,11 +85,9 @@ supabase_send_password_reset <- function(email) {
 get_user_profile <- function(user_id) {
   dbGetQuery(
     pool,
-    "
-    select user_id, first_name, last_name, role, active
-    from public.user_profiles
-    where user_id = $1
-    ",
+    "select user_id, first_name, last_name, role, active
+       from public.user_profiles
+      where user_id = $1",
     params = list(user_id)
   )
 }
@@ -127,7 +124,7 @@ META <- list(
       fld("category_name", "text", TRUE)
     )
   ),
-  item_id = list(
+  item = list(
     group = "Core", pk = "item_uid", pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("item_uid", "text", TRUE, pk = TRUE),
@@ -135,18 +132,19 @@ META <- list(
       fld(
         "category_id", "text", TRUE,
         fk = fk("category", "category_id", "category_id || ' / ' || category_name")
-      )
+      ),
+      fld("is_item_test", "bool", TRUE)
     )
   ),
   item_admin = list(
     group = "Core", pk = "item_admin_pk", pk_generated = TRUE, audit = TRUE,
     fields = list(
-      fld("item_admin_id", "text", TRUE),
+      fld("item_id", "text", TRUE),
       fld("item_var", "text", TRUE),
       fld("admin_id", "text", TRUE, fk = fk("admin", "admin_id")),
       fld(
         "item_uid", "text", TRUE,
-        fk = fk("item_id", "item_uid", "item_uid || ' / ' || item_name")
+        fk = fk("item", "item_uid", "item_uid || ' / ' || item_name")
       ),
       fld("varname"),
       fld("dataset_label"),
@@ -157,13 +155,13 @@ META <- list(
       fld("wording_heading"),
       fld("type", "text", TRUE),
       fld("miss_id", "text", fk = fk("miss_scheme", "miss_id")),
-      fld("response_id", "text", fk = fk("value_scheme", "response_id")),
-      fld("puf", "bool", TRUE)
+      fld("response_id", "text", fk = fk("response_scheme", "response_id")),
+      fld("is_puf", "bool", TRUE)
     )
   ),
   item_example = list(
     group = "Core", pk = c("item_admin_id", "admin_id", "path"),
-    pk_generated = FALSE, audit = FALSE,
+    pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("item_admin_id", "text", TRUE, pk = TRUE),
       fld("admin_id", "text", TRUE, pk = TRUE, fk = fk("admin", "admin_id")),
@@ -179,18 +177,18 @@ META <- list(
     group = "Core", pk = c("miss_id", "value"), pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("miss_id", "text", TRUE, pk = TRUE, fk = fk("miss_scheme", "miss_id")),
-      fld("value", "smallint", TRUE, pk = TRUE),
+      fld("value", "text", TRUE, pk = TRUE),
       fld("category", "text", TRUE)
     )
   ),
-  value_scheme = list(
+  response_scheme = list(
     group = "Core", pk = "response_id", pk_generated = FALSE, audit = TRUE,
     fields = list(fld("response_id", "text", TRUE, pk = TRUE))
   ),
-  value_scheme_value = list(
+  response_scheme_value = list(
     group = "Core", pk = c("response_id", "value"), pk_generated = FALSE, audit = TRUE,
     fields = list(
-      fld("response_id", "text", TRUE, pk = TRUE, fk = fk("value_scheme", "response_id")),
+      fld("response_id", "text", TRUE, pk = TRUE, fk = fk("response_scheme", "response_id")),
       fld("value", "smallint", TRUE, pk = TRUE),
       fld("label", "text", TRUE)
     )
@@ -224,16 +222,18 @@ META <- list(
       ),
       fld(
         "item_admin_pk", "int", TRUE,
-        fk = fk("item_admin", "item_admin_pk", "item_admin_id || ' / ' || admin_id")
-      )
+        fk = fk("item_admin", "item_admin_pk", "item_id || ' / ' || admin_id")
+      ),
+      fld("scale_type"),
+      fld("is_puf", "bool", TRUE)
     )
   )
 )
 
 TABLE_CHOICES <- list(
   Core = c(
-    "admin", "category", "item_id", "item_admin", "item_example",
-    "miss_scheme", "miss_scheme_value", "value_scheme", "value_scheme_value"
+    "admin", "category", "item", "item_admin", "item_example",
+    "miss_scheme", "miss_scheme_value", "response_scheme", "response_scheme_value"
   ),
   Scales = c("scale", "scale_version", "scale_items")
 )
@@ -333,18 +333,18 @@ SHEET_SPEC <- list(
     c("category_id", "category_name"),
     c("category_id", "category_name")
   ),
-  item_id = sh(
-    c("item_uid", "item_name", "category_id"),
-    c("item_uid", "item_name", "category_id")
+  item = sh(
+    c("item_uid", "item_name", "category_id", "is_item_test"),
+    c("item_uid", "item_name", "category_id", "is_item_test"),
+    bool = "is_item_test"
   ),
   miss_scheme = sh(c("miss_id"), c("miss_id")),
   miss_scheme_value = sh(
     c("miss_id", "value", "category"),
-    c("miss_id", "value", "category"),
-    int = "value"
+    c("miss_id", "value", "category")
   ),
-  value_scheme = sh(c("response_id"), c("response_id")),
-  value_scheme_value = sh(
+  response_scheme = sh(c("response_id"), c("response_id")),
+  response_scheme_value = sh(
     c("response_id", "value", "label"),
     c("response_id", "value", "label"),
     int = "value"
@@ -359,20 +359,21 @@ SHEET_SPEC <- list(
   ),
   item_admin = sh(
     c(
-      "item_admin_id", "item_var", "admin_id", "item_uid", "varname", "dataset_label",
+      "item_id", "item_var", "admin_id", "item_uid", "varname", "dataset_label",
       "wording_question", "wording_item", "wording_instruction", "wording_context",
-      "wording_heading", "type", "miss_id", "response_id", "puf"
+      "wording_heading", "type", "miss_id", "response_id", "is_puf"
     ),
-    c("item_admin_id", "item_var", "admin_id", "item_uid", "type", "puf"),
-    bool = "puf"
+    c("item_id", "item_var", "admin_id", "item_uid", "type", "is_puf"),
+    bool = "is_puf"
   ),
   item_example = sh(
     c("item_admin_id", "admin_id", "path", "label"),
     c("item_admin_id", "admin_id", "path")
   ),
   scale_items = sh(
-    c("scale_id", "item_admin_id", "admin_id"),
-    c("scale_id", "item_admin_id", "admin_id")
+    c("scale_id", "item_id", "admin_id", "scale_type", "is_puf"),
+    c("scale_id", "item_id", "admin_id", "is_puf"),
+    bool = "is_puf"
   )
 )
 
@@ -401,7 +402,8 @@ validate_upload <- function(path) {
         errs,
         sprintf(
           "%s: required columns are missing: %s",
-          s, paste(miss_cols, collapse = ", ")
+          s,
+          paste(miss_cols, collapse = ", ")
         )
       )
       next
@@ -411,7 +413,10 @@ validate_upload <- function(path) {
       col <- df[[rc]]
       empty <- is.na(col) | (is.character(col) & !nzchar(trimws(col)))
       if (any(empty)) {
-        errs <- c(errs, sprintf("%s: the required column '%s' contains empty cells", s, rc))
+        errs <- c(
+          errs,
+          sprintf("%s: the required column '%s' contains empty cells", s, rc)
+        )
       }
     }
 
@@ -427,7 +432,9 @@ validate_upload <- function(path) {
     for (bc in spec$bool) {
       if (bc %in% names(df)) {
         norm <- tolower(trimws(as.character(df[[bc]])))
-        ok <- norm %in% c("true", "false", "t", "f", "1", "0", "yes", "no", "si", "sí", "na", "")
+        ok <- norm %in% c(
+          "true", "false", "t", "f", "1", "0", "yes", "no", "si", "sí", "na", ""
+        )
         if (!all(ok)) {
           errs <- c(errs, sprintf("%s: '%s' is not Boolean (use TRUE/FALSE)", s, bc))
         }
@@ -447,7 +454,8 @@ to_staging <- function(df, spec) {
     if (bc %in% names(df)) {
       n <- tolower(trimws(df[[bc]]))
       df[[bc]] <- ifelse(
-        n %in% c("true", "t", "1", "yes", "si", "sí"), "true",
+        n %in% c("true", "t", "1", "yes", "si", "sí"),
+        "true",
         ifelse(n %in% c("false", "f", "0", "no"), "false", NA)
       )
     }
@@ -464,7 +472,9 @@ do_load <- function(data, modified_by) {
   present <- names(data)
   stg <- paste0("stg_", present)
 
-  for (t in stg) dbExecute(con, sprintf("drop table if exists %s", t))
+  for (t in stg) {
+    dbExecute(con, sprintf("drop table if exists %s", t))
+  }
 
   tryCatch({
     for (s in present) {
@@ -483,7 +493,11 @@ do_load <- function(data, modified_by) {
 
     if (has("admin")) {
       run(sprintf(
-        "insert into admin (admin_id,study,phase,year,instrument,target,cycle,modified_by) select admin_id,study,nullif(phase,''),year::smallint,nullif(instrument,''),nullif(target,''),nullif(cycle,''),%s from stg_admin",
+        paste0(
+          "insert into admin (admin_id,study,phase,year,instrument,target,cycle,modified_by) ",
+          "select admin_id,study,nullif(phase,''),year::smallint,nullif(instrument,''),",
+          "nullif(target,''),nullif(cycle,''),%s from stg_admin"
+        ),
         mb
       ))
     }
@@ -495,9 +509,12 @@ do_load <- function(data, modified_by) {
       ))
     }
 
-    if (has("item_id")) {
+    if (has("item")) {
       run(sprintf(
-        "insert into item_id (item_uid,item_name,category_id,modified_by) select item_uid,item_name,category_id,%s from stg_item_id",
+        paste0(
+          "insert into item (item_uid,item_name,category_id,is_item_test,modified_by) ",
+          "select item_uid,item_name,category_id,is_item_test::boolean,%s from stg_item"
+        ),
         mb
       ))
     }
@@ -511,21 +528,27 @@ do_load <- function(data, modified_by) {
 
     if (has("miss_scheme_value")) {
       run(sprintf(
-        "insert into miss_scheme_value (miss_id,value,category,modified_by) select miss_id,value::smallint,category,%s from stg_miss_scheme_value",
+        paste0(
+          "insert into miss_scheme_value (miss_id,value,category,modified_by) ",
+          "select miss_id,value,category,%s from stg_miss_scheme_value"
+        ),
         mb
       ))
     }
 
-    if (has("value_scheme")) {
+    if (has("response_scheme")) {
       run(sprintf(
-        "insert into value_scheme (response_id,modified_by) select response_id,%s from stg_value_scheme",
+        "insert into response_scheme (response_id,modified_by) select response_id,%s from stg_response_scheme",
         mb
       ))
     }
 
-    if (has("value_scheme_value")) {
+    if (has("response_scheme_value")) {
       run(sprintf(
-        "insert into value_scheme_value (response_id,value,label,modified_by) select response_id,value::smallint,label,%s from stg_value_scheme_value",
+        paste0(
+          "insert into response_scheme_value (response_id,value,label,modified_by) ",
+          "select response_id,value::smallint,label,%s from stg_response_scheme_value"
+        ),
         mb
       ))
     }
@@ -536,40 +559,77 @@ do_load <- function(data, modified_by) {
 
     if (has("scale_version")) {
       run(sprintf(
-        "insert into scale_version (scale_id,scale_description,scale_uid,scale_var,scale_varname,modified_by) select scale_id,scale_description,nullif(scale_uid,''),nullif(scale_var,''),nullif(scale_varname,''),%s from stg_scale_version",
+        paste0(
+          "insert into scale_version (scale_id,scale_description,scale_uid,scale_var,scale_varname,modified_by) ",
+          "select scale_id,scale_description,nullif(scale_uid,''),nullif(scale_var,''),",
+          "nullif(scale_varname,''),%s from stg_scale_version"
+        ),
         mb
       ))
     }
 
     if (has("item_admin")) {
       run(sprintf(
-        "insert into item_admin (item_admin_id,item_var,admin_id,item_uid,varname,dataset_label,wording_question,wording_item,wording_instruction,wording_context,wording_heading,type,miss_id,response_id,puf,modified_by) select item_admin_id,item_var,admin_id,item_uid,nullif(varname,''),nullif(dataset_label,''),nullif(wording_question,''),nullif(wording_item,''),nullif(wording_instruction,''),nullif(wording_context,''),nullif(wording_heading,''),type,nullif(miss_id,''),nullif(response_id,''),puf::boolean,%s from stg_item_admin",
+        paste0(
+          "insert into item_admin (",
+          "item_id,item_var,admin_id,item_uid,varname,dataset_label,",
+          "wording_question,wording_item,wording_instruction,wording_context,wording_heading,",
+          "type,miss_id,response_id,is_puf,modified_by",
+          ") select ",
+          "item_id,item_var,admin_id,item_uid,nullif(varname,''),nullif(dataset_label,''),",
+          "nullif(wording_question,''),nullif(wording_item,''),nullif(wording_instruction,''),",
+          "nullif(wording_context,''),nullif(wording_heading,''),type,nullif(miss_id,''),",
+          "nullif(response_id,''),is_puf::boolean,%s from stg_item_admin"
+        ),
         mb
       ))
     }
 
     if (has("item_example")) {
-      run("insert into item_example (item_admin_id,admin_id,path,label) select item_admin_id,admin_id,path,nullif(label,'') from stg_item_example")
+      run(sprintf(
+        paste0(
+          "insert into item_example (item_admin_id,admin_id,path,label,modified_by) ",
+          "select item_admin_id,admin_id,path,nullif(label,''),%s from stg_item_example"
+        ),
+        mb
+      ))
     }
 
     if (has("scale_items")) {
       run(
-        "do $$ declare n int; begin select count(*) into n from stg_scale_items s left join item_admin ia on ia.item_admin_id = s.item_admin_id and ia.admin_id = s.admin_id where ia.item_admin_pk is null; if n > 0 then raise exception 'scale_items: % row(s) reference an item administration that does not exist', n; end if; end $$;"
+        paste0(
+          "do $$ declare n int; begin ",
+          "select count(*) into n from stg_scale_items s ",
+          "left join item_admin ia on ia.item_id = s.item_id and ia.admin_id = s.admin_id ",
+          "where ia.item_admin_pk is null; ",
+          "if n > 0 then raise exception 'scale_items: % row(s) reference an item administration that does not exist', n; end if; ",
+          "end $$;"
+        )
       )
 
       run(sprintf(
-        "insert into scale_items (scale_id,item_admin_pk,modified_by) select s.scale_id,ia.item_admin_pk,%s from stg_scale_items s join item_admin ia on ia.item_admin_id = s.item_admin_id and ia.admin_id = s.admin_id",
+        paste0(
+          "insert into scale_items (scale_id,item_admin_pk,scale_type,is_puf,modified_by) ",
+          "select s.scale_id,ia.item_admin_pk,nullif(s.scale_type,''),s.is_puf::boolean,%s ",
+          "from stg_scale_items s join item_admin ia ",
+          "on ia.item_id = s.item_id and ia.admin_id = s.admin_id"
+        ),
         mb
       ))
     }
 
     dbCommit(con)
 
-    for (t in stg) dbExecute(con, sprintf("drop table if exists %s", t))
+    for (t in stg) {
+      dbExecute(con, sprintf("drop table if exists %s", t))
+    }
+
     list(ok = TRUE, rows = vapply(data, nrow, integer(1)))
   }, error = function(e) {
     try(dbRollback(con), silent = TRUE)
-    for (t in stg) try(dbExecute(con, sprintf("drop table if exists %s", t)), silent = TRUE)
+    for (t in stg) {
+      try(dbExecute(con, sprintf("drop table if exists %s", t)), silent = TRUE)
+    }
     list(ok = FALSE, msg = conditionMessage(e))
   })
 }
@@ -655,10 +715,26 @@ portal_ui <- function() {
     div(class = "editor-bar", textOutput("logged_user")),
     div(
       class = "iea-nav",
-      actionButton("nav_edit", tagList(icon("table"), "Edit / Delete / Add"), class = "iea-navbtn active"),
-      actionButton("nav_load", tagList(icon("upload"), "Upload Excel"), class = "iea-navbtn"),
-      actionButton("change_password_btn", tagList(icon("key"), "Change password"), class = "iea-navbtn"),
-      actionButton("logout_btn", tagList(icon("sign-out-alt"), "Sign out"), class = "iea-navbtn")
+      actionButton(
+        "nav_edit",
+        tagList(icon("table"), "Edit / Delete / Add"),
+        class = "iea-navbtn active"
+      ),
+      actionButton(
+        "nav_load",
+        tagList(icon("upload"), "Upload Excel"),
+        class = "iea-navbtn"
+      ),
+      actionButton(
+        "change_password_btn",
+        tagList(icon("key"), "Change password"),
+        class = "iea-navbtn"
+      ),
+      actionButton(
+        "logout_btn",
+        tagList(icon("sign-out-alt"), "Sign out"),
+        class = "iea-navbtn"
+      )
     ),
     navset_hidden(
       id = "mode",
@@ -676,7 +752,10 @@ portal_ui <- function() {
               actionButton("del", "Delete Selected", icon = icon("trash"), class = "btn-outline-danger w-100")
             )
           ),
-          card(card_header(textOutput("table_title")), DTOutput("grid"))
+          card(
+            card_header(textOutput("table_title")),
+            DTOutput("grid")
+          )
         )
       ),
       nav_panel(
@@ -684,9 +763,18 @@ portal_ui <- function() {
         card(
           card_header("Massive upload via Excel"),
           p("The template contains only the Core and Scales tables exposed in this Admin GUI."),
-          downloadButton("dl_template", paste0("Download template (", length(SHEET_SPEC), " sheets)"), class = "btn-outline-secondary"),
+          downloadButton(
+            "dl_template",
+            paste0("Download template (", length(SHEET_SPEC), " sheets)"),
+            class = "btn-outline-secondary"
+          ),
           hr(),
-          fileInput("xlsx", "Upload the Excel file (mass upload)", accept = ".xlsx", width = "100%"),
+          fileInput(
+            "xlsx",
+            "Upload the Excel file (mass upload)",
+            accept = ".xlsx",
+            width = "100%"
+          ),
           uiOutput("load_ui")
         )
       )
@@ -712,7 +800,11 @@ server <- function(input, output, session) {
 
   output$login_message <- renderUI({
     req(login_error())
-    div(class = "text-danger", style = "margin-top:14px;text-align:center;", login_error())
+    div(
+      class = "text-danger",
+      style = "margin-top:14px;text-align:center;",
+      login_error()
+    )
   })
 
   observeEvent(input$forgot_password_btn, {
@@ -736,6 +828,7 @@ server <- function(input, output, session) {
       showNotification("Enter your email address.", type = "error")
       return()
     }
+
     try(supabase_send_password_reset(email), silent = TRUE)
     removeModal()
     showNotification(
@@ -816,7 +909,10 @@ server <- function(input, output, session) {
       removeModal()
       showNotification("Password updated successfully.", type = "message")
     } else {
-      showNotification("It was not possible to update the password. Please sign in again and retry.", type = "error")
+      showNotification(
+        "It was not possible to update the password. Please sign in again and retry.",
+        type = "error"
+      )
     }
   })
 
@@ -835,7 +931,15 @@ server <- function(input, output, session) {
   output$logged_user <- renderText({
     user <- current_user()
     req(user)
-    paste0("Signed in as: ", user$first_name, " ", user$last_name, " (", user$role, ")")
+    paste0(
+      "Signed in as: ",
+      user$first_name,
+      " ",
+      user$last_name,
+      " (",
+      user$role,
+      ")"
+    )
   })
 
   observeEvent(input$nav_edit, nav_select("mode", "edit"))
@@ -937,7 +1041,13 @@ server <- function(input, output, session) {
 
   observeEvent(input$edit, {
     if (is.null(selected_row())) {
-      showModal(modalDialog("Select a row first.", easyClose = TRUE, footer = modalButton("Close")))
+      showModal(
+        modalDialog(
+          "Select a row first.",
+          easyClose = TRUE,
+          footer = modalButton("Close")
+        )
+      )
     } else if (require_author()) {
       show_form("edit")
     }
@@ -949,7 +1059,11 @@ server <- function(input, output, session) {
 
     writable <- Filter(
       function(f) {
-        if (mode == "add") !(m$pk_generated && isTRUE(f$pk)) else !isTRUE(f$pk)
+        if (mode == "add") {
+          !(m$pk_generated && isTRUE(f$pk))
+        } else {
+          !isTRUE(f$pk)
+        }
       },
       m$fields
     )
@@ -1005,7 +1119,9 @@ server <- function(input, output, session) {
       } else {
         sets <- vapply(
           seq_along(writable),
-          function(i) sprintf("%s = %s", cols[i], cast_ph(i, writable[[i]]$type)),
+          function(i) {
+            sprintf("%s = %s", cols[i], cast_ph(i, writable[[i]]$type))
+          },
           ""
         )
 
@@ -1055,7 +1171,13 @@ server <- function(input, output, session) {
 
   observeEvent(input$del, {
     if (is.null(selected_row())) {
-      showModal(modalDialog("Select a row first.", easyClose = TRUE, footer = modalButton("Close")))
+      showModal(
+        modalDialog(
+          "Select a row first.",
+          easyClose = TRUE,
+          footer = modalButton("Close")
+        )
+      )
       return()
     }
 
