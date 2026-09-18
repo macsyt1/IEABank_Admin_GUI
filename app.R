@@ -672,6 +672,18 @@ do_load <- function(data, modified_by) {
       ))
     }
 
+    if (has("item_admin")) {
+      run(
+        "select setval(pg_get_serial_sequence('item_admin','item_admin_pk'), (select max(item_admin_pk) from item_admin), true)"
+      )
+    }
+
+    if (has("scale_item")) {
+      run(
+        "select setval(pg_get_serial_sequence('scale_item','scale_item_pk'), (select max(scale_item_pk) from scale_item), true)"
+      )
+    }
+
     dbCommit(con)
 
     for (t in stg) {
