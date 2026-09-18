@@ -15,7 +15,7 @@ library(jsonlite)
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0) b else a
 
-APP_VERSION <- "1.2.0"
+APP_VERSION <- "1.3.0"
 IEA_RED  <- "#E2231A"
 IEA_GRAY <- "#54565A"
 
@@ -112,12 +112,14 @@ META <- list(
       fld("study", "text", TRUE),
       fld("phase"),
       fld("year", "smallint", TRUE),
-      fld("instrument"),
-      fld("target"),
-      fld("cycle")
+      fld("instrument_name"),
+      fld("pop"),
+      fld("target_grade"),
+      fld("dataset_prefix"),
+      fld("cycle_num")
     )
   ),
-  category = list(
+  item_category = list(
     group = "Core", pk = "category_id", pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("category_id", "text", TRUE, pk = TRUE),
@@ -131,32 +133,33 @@ META <- list(
       fld("item_name", "text", TRUE),
       fld(
         "category_id", "text", TRUE,
-        fk = fk("category", "category_id", "category_id || ' / ' || category_name")
+        fk = fk("item_category", "category_id", "category_id || ' / ' || category_name")
       ),
-      fld("is_item_test", "bool", TRUE)
+      fld("is_test_item", "bool", TRUE)
     )
   ),
   item_admin = list(
     group = "Core", pk = "item_admin_pk", pk_generated = TRUE, audit = TRUE,
     fields = list(
-      fld("item_id", "text", TRUE),
+      fld("item_uid", "text", TRUE, fk = fk("item", "item_uid", "item_uid || ' / ' || item_name")),
       fld("item_var", "text", TRUE),
+      fld("item_id", "text", TRUE),
       fld("admin_id", "text", TRUE, fk = fk("admin", "admin_id")),
-      fld(
-        "item_uid", "text", TRUE,
-        fk = fk("item", "item_uid", "item_uid || ' / ' || item_name")
-      ),
+      fld("response_id", "text", fk = fk("response_scheme", "response_id")),
+      fld("miss_id", "text", fk = fk("miss_scheme", "miss_id")),
+      fld("type", "text", TRUE),
+      fld("is_puf_quest", "bool", TRUE),
+      fld("is_puf_data", "bool", TRUE),
+      fld("can_request", "bool", TRUE),
+      fld("is_final_version", "bool", TRUE),
       fld("varname"),
       fld("dataset_label"),
       fld("wording_question"),
+      fld("wording_question_add"),
       fld("wording_item"),
       fld("wording_instruction"),
       fld("wording_context"),
-      fld("wording_heading"),
-      fld("type", "text", TRUE),
-      fld("miss_id", "text", fk = fk("miss_scheme", "miss_id")),
-      fld("response_id", "text", fk = fk("response_scheme", "response_id")),
-      fld("is_puf", "bool", TRUE)
+      fld("wording_heading")
     )
   ),
   item_example = list(
@@ -173,7 +176,7 @@ META <- list(
     group = "Core", pk = "miss_id", pk_generated = FALSE, audit = TRUE,
     fields = list(fld("miss_id", "text", TRUE, pk = TRUE))
   ),
-  miss_scheme_value = list(
+  miss_scheme_values = list(
     group = "Core", pk = c("miss_id", "value"), pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("miss_id", "text", TRUE, pk = TRUE, fk = fk("miss_scheme", "miss_id")),
@@ -183,21 +186,27 @@ META <- list(
   ),
   response_scheme = list(
     group = "Core", pk = "response_id", pk_generated = FALSE, audit = TRUE,
-    fields = list(fld("response_id", "text", TRUE, pk = TRUE))
+    fields = list(
+      fld("response_id", "text", TRUE, pk = TRUE),
+      fld("is_categorical", "bool", TRUE)
+    )
   ),
-  response_scheme_value = list(
+  response_scheme_values = list(
     group = "Core", pk = c("response_id", "value"), pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("response_id", "text", TRUE, pk = TRUE, fk = fk("response_scheme", "response_id")),
-      fld("value", "smallint", TRUE, pk = TRUE),
-      fld("label", "text", TRUE)
+      fld("value", "text", TRUE, pk = TRUE),
+      fld("label"),
+      fld("range_min", "integer"),
+      fld("range_max", "integer")
     )
   ),
   scale = list(
     group = "Scales", pk = "scale_uid", pk_generated = FALSE, audit = FALSE,
     fields = list(
       fld("scale_uid", "text", TRUE, pk = TRUE),
-      fld("scale_name", "text", TRUE)
+      fld("scale_name", "text", TRUE),
+      fld("is_scaled", "bool", TRUE)
     )
   ),
   scale_version = list(
@@ -205,43 +214,35 @@ META <- list(
     fields = list(
       fld("scale_id", "text", TRUE, pk = TRUE),
       fld("scale_description", "text", TRUE),
-      fld(
-        "scale_uid", "text", FALSE,
-        fk = fk("scale", "scale_uid", "scale_uid || ' / ' || scale_name")
-      ),
-      fld("scale_var"),
-      fld("scale_varname")
+      fld("scale_varname", "text", TRUE),
+      fld("is_equated", "bool", FALSE),
+      fld("is_puf", "bool", TRUE),
+      fld("scale_uid", "text", TRUE, fk = fk("scale", "scale_uid", "scale_uid || ' / ' || scale_name")),
+      fld("scale_var", "text", TRUE)
     )
   ),
-  scale_items = list(
+  scale_item = list(
     group = "Scales", pk = "scale_item_pk", pk_generated = TRUE, audit = TRUE,
     fields = list(
-      fld(
-        "scale_id", "text", TRUE,
-        fk = fk("scale_version", "scale_id", "scale_id || ' / ' || scale_description")
-      ),
-      fld(
-        "item_admin_pk", "int", TRUE,
-        fk = fk("item_admin", "item_admin_pk", "item_id || ' / ' || admin_id")
-      ),
-      fld("scale_type"),
-      fld("is_puf", "bool", TRUE)
+      fld("scale_id", "text", TRUE, fk = fk("scale_version", "scale_id", "scale_id || ' / ' || scale_description")),
+      fld("item_admin_pk", "int", TRUE, fk = fk("item_admin", "item_admin_pk", "item_id || ' / ' || admin_id"))
     )
   )
 )
 
 TABLE_CHOICES <- list(
   Core = c(
-    "admin", "category", "item", "item_admin", "item_example",
-    "miss_scheme", "miss_scheme_value", "response_scheme", "response_scheme_value"
+    "admin", "item_category", "item", "item_admin", "item_example",
+    "miss_scheme", "miss_scheme_values", "response_scheme", "response_scheme_values"
   ),
-  Scales = c("scale", "scale_version", "scale_items")
+  Scales = c("scale", "scale_version", "scale_item")
 )
 
 cast_ph <- function(i, type) {
   switch(
     type,
     smallint = sprintf("$%d::smallint", i),
+    integer = sprintf("$%d::integer", i),
     int = sprintf("$%d::bigint", i),
     bool = sprintf("$%d::boolean", i),
     sprintf("$%d", i)
@@ -276,10 +277,26 @@ make_input <- function(f, value = NULL, mode = "add") {
   }
 
   if (f$type == "bool") {
+    if (!isTRUE(f$required)) {
+      selected <- if (is.null(value) || length(value) == 0 || is.na(value)) {
+        ""
+      } else if (isTRUE(as.logical(value))) {
+        "TRUE"
+      } else {
+        "FALSE"
+      }
+      return(
+        selectInput(
+          id, f$name,
+          choices = c("" = "", "TRUE" = "TRUE", "FALSE" = "FALSE"),
+          selected = selected
+        )
+      )
+    }
     return(checkboxInput(id, f$name, value = isTRUE(as.logical(value))))
   }
 
-  if (f$type %in% c("smallint", "int")) {
+  if (f$type %in% c("smallint", "integer", "int")) {
     return(
       numericInput(
         id, f$name,
@@ -299,7 +316,12 @@ read_input <- function(input, f) {
   id <- paste0("fld_", f$name)
 
   if (f$type == "bool") {
-    return(as.character(isTRUE(input[[id]])))
+    v <- input[[id]]
+    if (is.null(v) || length(v) == 0) return(NA_character_)
+    if (is.character(v) && !nzchar(trimws(v))) return(NA_character_)
+    return(
+      if (isTRUE(v) || identical(toupper(as.character(v)), "TRUE")) "true" else "false"
+    )
   }
 
   v <- input[[id]]
@@ -325,56 +347,77 @@ sh <- function(cols, required, int = character(), bool = character()) {
 
 SHEET_SPEC <- list(
   admin = sh(
-    c("admin_id", "study", "phase", "year", "instrument", "target", "cycle"),
+    c("admin_id", "study", "phase", "year", "instrument_name", "pop", "target_grade", "dataset_prefix", "cycle_num"),
     c("admin_id", "study", "year"),
     int = "year"
   ),
-  category = sh(
+  item_category = sh(
     c("category_id", "category_name"),
     c("category_id", "category_name")
   ),
   item = sh(
-    c("item_uid", "item_name", "category_id", "is_item_test"),
-    c("item_uid", "item_name", "category_id", "is_item_test"),
-    bool = "is_item_test"
-  ),
-  miss_scheme = sh(c("miss_id"), c("miss_id")),
-  miss_scheme_value = sh(
-    c("miss_id", "value", "category"),
-    c("miss_id", "value", "category")
-  ),
-  response_scheme = sh(c("response_id"), c("response_id")),
-  response_scheme_value = sh(
-    c("response_id", "value", "label"),
-    c("response_id", "value", "label"),
-    int = "value"
-  ),
-  scale = sh(
-    c("scale_uid", "scale_name"),
-    c("scale_uid", "scale_name")
-  ),
-  scale_version = sh(
-    c("scale_id", "scale_description", "scale_uid", "scale_var", "scale_varname"),
-    c("scale_id", "scale_description")
+    c("item_uid", "item_name", "category_id", "is_test_item"),
+    c("item_uid", "item_name", "category_id", "is_test_item"),
+    bool = "is_test_item"
   ),
   item_admin = sh(
     c(
-      "item_id", "item_var", "admin_id", "item_uid", "varname", "dataset_label",
-      "wording_question", "wording_item", "wording_instruction", "wording_context",
-      "wording_heading", "type", "miss_id", "response_id", "is_puf"
+      "item_admin_pk", "item_uid", "item_var", "item_id", "admin_id", "response_id", "miss_id",
+      "type", "is_puf_quest", "is_puf_data", "can_request", "is_final_version",
+      "varname", "dataset_label", "wording_question", "wording_question_add",
+      "wording_item", "wording_instruction", "wording_context", "wording_heading"
     ),
-    c("item_id", "item_var", "admin_id", "item_uid", "type", "is_puf"),
-    bool = "is_puf"
+    c(
+      "item_admin_pk", "item_uid", "item_var", "item_id", "admin_id", "type",
+      "is_puf_quest", "is_puf_data", "can_request", "is_final_version"
+    ),
+    int = "item_admin_pk",
+    bool = c("is_puf_quest", "is_puf_data", "can_request", "is_final_version")
   ),
-  item_example = sh(
-    c("item_admin_id", "admin_id", "path", "label"),
-    c("item_admin_id", "admin_id", "path")
+  response_scheme = sh(
+    c("response_id", "is_categorical"),
+    c("response_id", "is_categorical"),
+    bool = "is_categorical"
   ),
-  scale_items = sh(
-    c("scale_id", "item_id", "admin_id", "scale_type", "is_puf"),
-    c("scale_id", "item_id", "admin_id", "is_puf"),
-    bool = "is_puf"
+  response_scheme_values = sh(
+    c("response_id", "value", "label", "range_min", "range_max"),
+    c("response_id", "value"),
+    int = c("range_min", "range_max")
+  ),
+  miss_scheme = sh(c("miss_id"), c("miss_id")),
+  miss_scheme_values = sh(
+    c("miss_id", "value", "category"),
+    c("miss_id", "value", "category")
+  ),
+  scale = sh(
+    c("scale_uid", "scale_name", "is_scaled"),
+    c("scale_uid", "scale_name", "is_scaled"),
+    bool = "is_scaled"
+  ),
+  scale_version = sh(
+    c("scale_id", "scale_description", "scale_varname", "is_equated", "is_puf", "scale_uid", "scale_var"),
+    c("scale_id", "scale_description", "scale_varname", "is_puf", "scale_uid", "scale_var"),
+    bool = c("is_equated", "is_puf")
+  ),
+  scale_item = sh(
+    c("scale_id", "scale_item_pk", "item_admin_pk"),
+    c("scale_id", "scale_item_pk", "item_admin_pk"),
+    int = c("scale_item_pk", "item_admin_pk")
   )
+)
+
+UNIQUE_KEYS <- list(
+  admin = list(c("admin_id")),
+  item_category = list(c("category_id")),
+  item = list(c("item_uid")),
+  item_admin = list(c("item_admin_pk"), c("item_id", "admin_id")),
+  response_scheme = list(c("response_id")),
+  response_scheme_values = list(c("response_id", "value")),
+  miss_scheme = list(c("miss_id")),
+  miss_scheme_values = list(c("miss_id", "value")),
+  scale = list(c("scale_uid")),
+  scale_version = list(c("scale_id")),
+  scale_item = list(c("scale_item_pk"), c("scale_id", "item_admin_pk"))
 )
 
 validate_upload <- function(path) {
@@ -411,7 +454,9 @@ validate_upload <- function(path) {
 
     for (rc in spec$required) {
       col <- df[[rc]]
-      empty <- is.na(col) | (is.character(col) & !nzchar(trimws(col)))
+      txt <- trimws(as.character(col))
+      allow_na_literal <- identical(s, "response_scheme_values") && identical(rc, "value")
+      empty <- is.na(col) | !nzchar(txt) | (!allow_na_literal & toupper(txt) == "#N/A")
       if (any(empty)) {
         errs <- c(
           errs,
@@ -422,8 +467,10 @@ validate_upload <- function(path) {
 
     for (ic in spec$int) {
       if (ic %in% names(df)) {
-        v <- suppressWarnings(as.integer(as.character(df[[ic]])))
-        if (any(is.na(v) & !is.na(df[[ic]]))) {
+        raw <- trimws(as.character(df[[ic]]))
+        blankish <- is.na(df[[ic]]) | !nzchar(raw) | toupper(raw) == "#N/A"
+        v <- suppressWarnings(as.integer(raw))
+        if (any(is.na(v) & !blankish)) {
           errs <- c(errs, sprintf("%s: '%s' contains values that are not integers", s, ic))
         }
       }
@@ -432,11 +479,27 @@ validate_upload <- function(path) {
     for (bc in spec$bool) {
       if (bc %in% names(df)) {
         norm <- tolower(trimws(as.character(df[[bc]])))
-        ok <- norm %in% c(
-          "true", "false", "t", "f", "1", "0", "yes", "no", "si", "sí", "na", ""
+        ok <- is.na(df[[bc]]) | norm %in% c(
+          "true", "false", "t", "f", "1", "0", "yes", "no", "si", "sí", "na", "#n/a", ""
         )
         if (!all(ok)) {
           errs <- c(errs, sprintf("%s: '%s' is not Boolean (use TRUE/FALSE)", s, bc))
+        }
+      }
+    }
+
+    keys_list <- UNIQUE_KEYS[[s]]
+    if (!is.null(keys_list)) {
+      for (keys in keys_list) {
+        if (all(keys %in% names(df))) {
+          key_df <- df[, keys, drop = FALSE]
+          complete <- stats::complete.cases(key_df)
+          if (any(duplicated(key_df[complete, , drop = FALSE]))) {
+            errs <- c(
+              errs,
+              sprintf("%s: duplicated key (%s)", s, paste(keys, collapse = ", "))
+            )
+          }
         }
       }
     }
@@ -490,21 +553,22 @@ do_load <- function(data, modified_by) {
     dbBegin(con)
     run <- function(sql) dbExecute(con, sql)
     has <- function(s) s %in% present
+    nvl <- function(x) sprintf("nullif(nullif(%s,''),'#N/A')", x)
 
     if (has("admin")) {
       run(sprintf(
         paste0(
-          "insert into admin (admin_id,study,phase,year,instrument,target,cycle,modified_by) ",
-          "select admin_id,study,nullif(phase,''),year::smallint,nullif(instrument,''),",
-          "nullif(target,''),nullif(cycle,''),%s from stg_admin"
+          "insert into admin (admin_id,study,phase,year,instrument_name,pop,target_grade,dataset_prefix,cycle_num,modified_by) ",
+          "select admin_id,study,%s,year::smallint,%s,%s,%s,%s,%s,%s from stg_admin"
         ),
-        mb
+        nvl("phase"), nvl("instrument_name"), nvl("pop"), nvl("target_grade"),
+        nvl("dataset_prefix"), nvl("cycle_num"), mb
       ))
     }
 
-    if (has("category")) {
+    if (has("item_category")) {
       run(sprintf(
-        "insert into category (category_id,category_name,modified_by) select category_id,category_name,%s from stg_category",
+        "insert into item_category (category_id,category_name,modified_by) select category_id,category_name,%s from stg_item_category",
         mb
       ))
     }
@@ -512,8 +576,8 @@ do_load <- function(data, modified_by) {
     if (has("item")) {
       run(sprintf(
         paste0(
-          "insert into item (item_uid,item_name,category_id,is_item_test,modified_by) ",
-          "select item_uid,item_name,category_id,is_item_test::boolean,%s from stg_item"
+          "insert into item (item_uid,item_name,category_id,is_test_item,modified_by) ",
+          "select item_uid,item_name,category_id,is_test_item::boolean,%s from stg_item"
         ),
         mb
       ))
@@ -526,11 +590,11 @@ do_load <- function(data, modified_by) {
       ))
     }
 
-    if (has("miss_scheme_value")) {
+    if (has("miss_scheme_values")) {
       run(sprintf(
         paste0(
-          "insert into miss_scheme_value (miss_id,value,category,modified_by) ",
-          "select miss_id,value,category,%s from stg_miss_scheme_value"
+          "insert into miss_scheme_values (miss_id,value,category,modified_by) ",
+          "select miss_id,value,category,%s from stg_miss_scheme_values"
         ),
         mb
       ))
@@ -538,31 +602,43 @@ do_load <- function(data, modified_by) {
 
     if (has("response_scheme")) {
       run(sprintf(
-        "insert into response_scheme (response_id,modified_by) select response_id,%s from stg_response_scheme",
+        paste0(
+          "insert into response_scheme (response_id,is_categorical,modified_by) ",
+          "select response_id,is_categorical::boolean,%s from stg_response_scheme"
+        ),
         mb
       ))
     }
 
-    if (has("response_scheme_value")) {
+    if (has("response_scheme_values")) {
       run(sprintf(
         paste0(
-          "insert into response_scheme_value (response_id,value,label,modified_by) ",
-          "select response_id,value::smallint,label,%s from stg_response_scheme_value"
+          "insert into response_scheme_values (response_id,value,label,range_min,range_max,modified_by) ",
+          "select response_id,value,nullif(label,''),",
+          "nullif(nullif(range_min,''),'#N/A')::integer,",
+          "nullif(nullif(range_max,''),'#N/A')::integer,%s ",
+          "from stg_response_scheme_values"
         ),
         mb
       ))
     }
 
     if (has("scale")) {
-      run("insert into scale (scale_uid,scale_name) select scale_uid,scale_name from stg_scale")
+      run(
+        paste0(
+          "insert into scale (scale_uid,scale_name,is_scaled) ",
+          "select scale_uid,scale_name,is_scaled::boolean from stg_scale"
+        )
+      )
     }
 
     if (has("scale_version")) {
       run(sprintf(
         paste0(
-          "insert into scale_version (scale_id,scale_description,scale_uid,scale_var,scale_varname,modified_by) ",
-          "select scale_id,scale_description,nullif(scale_uid,''),nullif(scale_var,''),",
-          "nullif(scale_varname,''),%s from stg_scale_version"
+          "insert into scale_version (scale_id,scale_description,scale_varname,is_equated,is_puf,scale_uid,scale_var,modified_by) ",
+          "select scale_id,scale_description,scale_varname,",
+          "nullif(is_equated,'')::boolean,is_puf::boolean,scale_uid,scale_var,%s ",
+          "from stg_scale_version"
         ),
         mb
       ))
@@ -572,47 +648,25 @@ do_load <- function(data, modified_by) {
       run(sprintf(
         paste0(
           "insert into item_admin (",
-          "item_id,item_var,admin_id,item_uid,varname,dataset_label,",
-          "wording_question,wording_item,wording_instruction,wording_context,wording_heading,",
-          "type,miss_id,response_id,is_puf,modified_by",
+          "item_admin_pk,item_uid,item_var,item_id,admin_id,response_id,miss_id,type,",
+          "is_puf_quest,is_puf_data,can_request,is_final_version,varname,dataset_label,",
+          "wording_question,wording_question_add,wording_item,wording_instruction,wording_context,wording_heading,modified_by",
           ") select ",
-          "item_id,item_var,admin_id,item_uid,nullif(varname,''),nullif(dataset_label,''),",
-          "nullif(wording_question,''),nullif(wording_item,''),nullif(wording_instruction,''),",
-          "nullif(wording_context,''),nullif(wording_heading,''),type,nullif(miss_id,''),",
-          "nullif(response_id,''),is_puf::boolean,%s from stg_item_admin"
+          "item_admin_pk::bigint,item_uid,item_var,item_id,admin_id,",
+          "%s,%s,type,is_puf_quest::boolean,is_puf_data::boolean,can_request::boolean,is_final_version::boolean,",
+          "%s,%s,%s,%s,%s,%s,%s,%s,%s from stg_item_admin"
         ),
-        mb
+        nvl("response_id"), nvl("miss_id"), nvl("varname"), nvl("dataset_label"),
+        nvl("wording_question"), nvl("wording_question_add"), nvl("wording_item"),
+        nvl("wording_instruction"), nvl("wording_context"), nvl("wording_heading"), mb
       ))
     }
 
-    if (has("item_example")) {
+    if (has("scale_item")) {
       run(sprintf(
         paste0(
-          "insert into item_example (item_admin_id,admin_id,path,label,modified_by) ",
-          "select item_admin_id,admin_id,path,nullif(label,''),%s from stg_item_example"
-        ),
-        mb
-      ))
-    }
-
-    if (has("scale_items")) {
-      run(
-        paste0(
-          "do $$ declare n int; begin ",
-          "select count(*) into n from stg_scale_items s ",
-          "left join item_admin ia on ia.item_id = s.item_id and ia.admin_id = s.admin_id ",
-          "where ia.item_admin_pk is null; ",
-          "if n > 0 then raise exception 'scale_items: % row(s) reference an item administration that does not exist', n; end if; ",
-          "end $$;"
-        )
-      )
-
-      run(sprintf(
-        paste0(
-          "insert into scale_items (scale_id,item_admin_pk,scale_type,is_puf,modified_by) ",
-          "select s.scale_id,ia.item_admin_pk,nullif(s.scale_type,''),s.is_puf::boolean,%s ",
-          "from stg_scale_items s join item_admin ia ",
-          "on ia.item_id = s.item_id and ia.admin_id = s.admin_id"
+          "insert into scale_item (scale_id,scale_item_pk,item_admin_pk,modified_by) ",
+          "select scale_id,scale_item_pk::bigint,item_admin_pk::bigint,%s from stg_scale_item"
         ),
         mb
       ))
