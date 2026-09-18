@@ -288,7 +288,7 @@ make_input <- function(f, value = NULL, mode = "add") {
       return(
         selectInput(
           id, f$name,
-          choices = c("" = "", "TRUE" = "TRUE", "FALSE" = "FALSE"),
+          choices = stats::setNames(c("", "TRUE", "FALSE"), c("", "TRUE", "FALSE")),
           selected = selected
         )
       )
