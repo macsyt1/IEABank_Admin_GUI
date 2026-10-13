@@ -114,16 +114,17 @@ META <- list(
       fld("phase"),
       fld("year", "smallint", TRUE),
       fld("instrument_name"),
-      fld("pop"),
+      fld("instrument_pop"),
+      fld("instrument_type"),
       fld("target_grade"),
       fld("dataset_prefix"),
       fld("cycle_num")
     )
   ),
-  item_category = list(
-    group = "Core", pk = "category_id", pk_generated = FALSE, audit = TRUE,
+  topic = list(
+    group = "Core", pk = "topic_id", pk_generated = FALSE, audit = TRUE,
     fields = list(
-      fld("category_id", "text", TRUE, pk = TRUE),
+      fld("topic_id", "text", TRUE, pk = TRUE),
       fld("category_name", "text", TRUE)
     )
   ),
@@ -133,8 +134,8 @@ META <- list(
       fld("item_uid", "text", TRUE, pk = TRUE),
       fld("item_name", "text", TRUE),
       fld(
-        "category_id", "text", TRUE,
-        fk = fk("item_category", "category_id", "category_id || ' / ' || category_name")
+        "topic_id", "text", TRUE,
+        fk = fk("topic", "topic_id", "topic_id || ' / ' || category_name")
       ),
       fld("is_test_item", "bool", TRUE)
     )
@@ -148,11 +149,10 @@ META <- list(
       fld("admin_id", "text", TRUE, fk = fk("admin", "admin_id")),
       fld("response_id", "text", fk = fk("response_scheme", "response_id")),
       fld("miss_id", "text", fk = fk("miss_scheme", "miss_id")),
-      fld("type", "text", TRUE),
-      fld("is_puf_quest", "bool", TRUE),
-      fld("is_puf_data", "bool", TRUE),
-      fld("can_request", "bool", TRUE),
-      fld("is_final_version", "bool", TRUE),
+      fld("response_type", "text", TRUE),
+      fld("is_public_itembank", "bool", TRUE),
+      fld("is_puf", "bool", TRUE),
+      fld("is_version_published", "bool", TRUE),
       fld("varname"),
       fld("dataset_label"),
       fld("wording_question"),
@@ -178,54 +178,58 @@ META <- list(
     fields = list(fld("miss_id", "text", TRUE, pk = TRUE))
   ),
   miss_scheme_values = list(
-    group = "Core", pk = c("miss_id", "value"), pk_generated = FALSE, audit = TRUE,
+    group = "Core", pk = c("miss_id", "miss_value"), pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("miss_id", "text", TRUE, pk = TRUE, fk = fk("miss_scheme", "miss_id")),
-      fld("value", "text", TRUE, pk = TRUE),
-      fld("category", "text", TRUE)
+      fld("miss_value", "text", TRUE, pk = TRUE),
+      fld("miss_description", "text", TRUE)
     )
   ),
   response_scheme = list(
     group = "Core", pk = "response_id", pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("response_id", "text", TRUE, pk = TRUE),
-      fld("is_categorical", "bool", TRUE)
+      fld("is_categorical", "bool", TRUE),
+      fld("is_checkbox", "bool")
     )
   ),
   response_scheme_values = list(
-    group = "Core", pk = c("response_id", "value"), pk_generated = FALSE, audit = TRUE,
+    group = "Core", pk = c("response_id", "response_value"), pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("response_id", "text", TRUE, pk = TRUE, fk = fk("response_scheme", "response_id")),
-      fld("value", "text", TRUE, pk = TRUE),
-      fld("label"),
+      fld("response_value", "text", TRUE, pk = TRUE),
+      fld("response_label"),
+      fld("checked_value"),
+      fld("not_checked_value"),
       fld("range_min", "integer"),
       fld("range_max", "integer")
     )
   ),
-  scale = list(
-    group = "Derived Variables", pk = "scale_uid", pk_generated = FALSE, audit = FALSE,
+  `index` = list(
+    group = "Derived Variables", pk = "index_uid", pk_generated = FALSE, audit = FALSE,
     fields = list(
-      fld("scale_uid", "text", TRUE, pk = TRUE),
-      fld("scale_name", "text", TRUE),
+      fld("index_uid", "text", TRUE, pk = TRUE),
+      fld("index_name", "text", TRUE),
       fld("is_scaled", "bool", TRUE)
     )
   ),
-  scale_version = list(
-    group = "Derived Variables", pk = "scale_id", pk_generated = FALSE, audit = TRUE,
+  index_version = list(
+    group = "Derived Variables", pk = "index_id", pk_generated = FALSE, audit = TRUE,
     fields = list(
-      fld("scale_id", "text", TRUE, pk = TRUE),
-      fld("scale_description", "text", TRUE),
-      fld("scale_varname", "text", TRUE),
+      fld("index_id", "text", TRUE, pk = TRUE),
+      fld("index_version_description", "text", TRUE),
+      fld("index_varname", "text", TRUE),
       fld("is_equated", "bool", FALSE),
-      fld("is_puf", "bool", TRUE),
-      fld("scale_uid", "text", TRUE, fk = fk("scale", "scale_uid", "scale_uid || ' / ' || scale_name")),
-      fld("scale_var", "text", TRUE)
+      fld("is_public_itembank", "bool", TRUE),
+      fld("is_puf", "bool"),
+      fld("index_uid", "text", TRUE, fk = fk("scale", "index_uid", "index_uid || ' / ' || index_name")),
+      fld("index_var", "text", TRUE)
     )
   ),
-  scale_item = list(
-    group = "Derived Variables", pk = "scale_item_pk", pk_generated = TRUE, audit = TRUE,
+  index_item = list(
+    group = "Derived Variables", pk = "index_item_pk", pk_generated = TRUE, audit = TRUE,
     fields = list(
-      fld("scale_id", "text", TRUE, fk = fk("scale_version", "scale_id", "scale_id || ' / ' || scale_description")),
+      fld("index_id", "text", TRUE, fk = fk("index_version", "index_id", "index_id || ' / ' || index_version_description")),
       fld("item_admin_pk", "int", TRUE, fk = fk("item_admin", "item_admin_pk", "item_id || ' / ' || admin_id"))
     )
   )
@@ -233,10 +237,10 @@ META <- list(
 
 TABLE_CHOICES <- list(
   Core = c(
-    "admin", "item_category", "item", "item_admin", "item_example",
+    "admin", "topic", "item", "item_admin", "item_example",
     "miss_scheme", "miss_scheme_values", "response_scheme", "response_scheme_values"
   ),
-  `Derived Variables` = c("scale", "scale_version", "scale_item")
+  `Derived Variables` = c("index", "index_version", "index_item")
 )
 
 cast_ph <- function(i, type) {
@@ -348,77 +352,77 @@ sh <- function(cols, required, int = character(), bool = character()) {
 
 SHEET_SPEC <- list(
   admin = sh(
-    c("admin_id", "study", "phase", "year", "instrument_name", "pop", "target_grade", "dataset_prefix", "cycle_num"),
+    c("admin_id", "study", "phase", "year", "instrument_name", "instrument_type", "instrument_pop", "target_grade", "dataset_prefix", "cycle_num"),
     c("admin_id", "study", "year"),
     int = "year"
   ),
-  item_category = sh(
-    c("category_id", "category_name"),
-    c("category_id", "category_name")
+  topic = sh(
+    c("topic_id", "category_name"),
+    c("topic_id", "category_name")
   ),
   item = sh(
-    c("item_uid", "item_name", "category_id", "is_test_item"),
-    c("item_uid", "item_name", "category_id", "is_test_item"),
+    c("item_uid", "item_name", "topic_id", "is_test_item"),
+    c("item_uid", "item_name", "topic_id", "is_test_item"),
     bool = "is_test_item"
   ),
   item_admin = sh(
     c(
       "item_admin_pk", "item_uid", "item_var", "item_id", "admin_id", "response_id", "miss_id",
-      "type", "is_puf_quest", "is_puf_data", "can_request", "is_final_version",
+      "response_type", "is_public_itembank", "is_puf", "is_version_published",
       "varname", "dataset_label", "wording_question", "wording_question_add",
       "wording_item", "wording_instruction", "wording_context", "wording_heading"
     ),
     c(
-      "item_admin_pk", "item_uid", "item_var", "item_id", "admin_id", "type",
-      "is_puf_quest", "is_puf_data", "can_request", "is_final_version"
+      "item_admin_pk", "item_uid", "item_var", "item_id", "admin_id", "response_type",
+      "is_public_itembank", "is_puf", "is_version_published"
     ),
     int = "item_admin_pk",
-    bool = c("is_puf_quest", "is_puf_data", "can_request", "is_final_version")
+    bool = c("is_public_itembank", "is_puf", "is_version_published")
   ),
   response_scheme = sh(
-    c("response_id", "is_categorical"),
-    c("response_id", "is_categorical"),
-    bool = "is_categorical"
+    c("response_id", "is_categorical", "is_checkbox"),
+    c("response_id", "is_categorical", "is_checkbox"),
+    bool = c("is_categorical", "is_checkbox")
   ),
   response_scheme_values = sh(
-    c("response_id", "value", "label", "range_min", "range_max"),
-    c("response_id", "value"),
+    c("response_id", "response_value", "response_label", "checked_value", "not_checked_value", "range_min", "range_max"),
+    c("response_id", "response_value"),
     int = c("range_min", "range_max")
   ),
   miss_scheme = sh(c("miss_id"), c("miss_id")),
   miss_scheme_values = sh(
-    c("miss_id", "value", "category"),
-    c("miss_id", "value", "category")
+    c("miss_id", "miss_value", "miss_description"),
+    c("miss_id", "miss_value", "miss_description")
   ),
-  scale = sh(
-    c("scale_uid", "scale_name", "is_scaled"),
-    c("scale_uid", "scale_name", "is_scaled"),
+  `index` = sh(
+    c("index_uid", "index_name", "is_scaled"),
+    c("index_uid", "index_name", "is_scaled"),
     bool = "is_scaled"
   ),
-  scale_version = sh(
-    c("scale_id", "scale_description", "scale_varname", "is_equated", "is_puf", "scale_uid", "scale_var"),
-    c("scale_id", "scale_description", "scale_varname", "is_puf", "scale_uid", "scale_var"),
-    bool = c("is_equated", "is_puf")
+  index_version = sh(
+    c("index_id", "index_version_description", "index_varname", "is_equated", "is_public_itembank", "is_puf", "index_uid", "index_var"),
+    c("index_id", "index_version_description", "index_varname", "is_puf", "index_uid", "index_var"),
+    bool = c("is_equated", "is_public_itembank", "is_puf")
   ),
-  scale_item = sh(
-    c("scale_id", "scale_item_pk", "item_admin_pk"),
-    c("scale_id", "scale_item_pk", "item_admin_pk"),
-    int = c("scale_item_pk", "item_admin_pk")
+  index_item = sh(
+    c("index_id", "index_item_pk", "item_admin_pk"),
+    c("index_id", "index_item_pk", "item_admin_pk"),
+    int = c("index_item_pk", "item_admin_pk")
   )
 )
 
 UNIQUE_KEYS <- list(
   admin = list(c("admin_id")),
-  item_category = list(c("category_id")),
+  topic = list(c("topic_id")),
   item = list(c("item_uid")),
   item_admin = list(c("item_admin_pk"), c("item_id", "admin_id")),
   response_scheme = list(c("response_id")),
-  response_scheme_values = list(c("response_id", "value")),
+  response_scheme_values = list(c("response_id", "response_value")),
   miss_scheme = list(c("miss_id")),
-  miss_scheme_values = list(c("miss_id", "value")),
-  scale = list(c("scale_uid")),
-  scale_version = list(c("scale_id")),
-  scale_item = list(c("scale_item_pk"), c("scale_id", "item_admin_pk"))
+  miss_scheme_values = list(c("miss_id", "miss_value")),
+  `index` = list(c("index_uid")),
+  index_version = list(c("index_id")),
+  index_item = list(c("index_item_pk"), c("index_id", "item_admin_pk"))
 )
 
 validate_upload <- function(path) {
