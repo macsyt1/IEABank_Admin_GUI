@@ -222,7 +222,7 @@ META <- list(
       fld("is_equated", "bool", FALSE),
       fld("is_public_itembank", "bool", TRUE),
       fld("is_puf", "bool"),
-      fld("index_uid", "text", TRUE, fk = fk("scale", "index_uid", "index_uid || ' / ' || index_name")),
+      fld("index_uid", "text", TRUE, fk = fk("index", "index_uid", "index_uid || ' / ' || index_name")),
       fld("index_var", "text", TRUE)
     )
   ),
@@ -533,174 +533,70 @@ to_staging <- function(df, spec) {
 }
 
 do_load <- function(data, modified_by) {
+  # Upsert rather than delete/reinsert: preserve foreign keys, stable IDs,
+  # and dependent material (examples, translations, calibration).
+  order <- c("admin", "topic", "item", "miss_scheme", "miss_scheme_values",
+             "response_scheme", "response_scheme_values", "index",
+             "index_version", "item_admin", "index_item")
+  present <- intersect(order, names(data))
   con <- poolCheckout(pool)
   on.exit(poolReturn(con))
-
-  mb <- dbQuoteLiteral(con, modified_by)
-  present <- names(data)
-  stg <- paste0("stg_", present)
-
-  for (t in stg) {
-    dbExecute(con, sprintf("drop table if exists %s", t))
-  }
-
+  dbBegin(con)
   tryCatch({
+    affected <- setNames(integer(length(present)), present)
     for (s in present) {
-      dbWriteTable(
-        con,
-        paste0("stg_", s),
-        to_staging(data[[s]], SHEET_SPEC[[s]]),
-        temporary = TRUE,
-        overwrite = TRUE
+      spec <- SHEET_SPEC[[s]]
+      df <- to_staging(data[[s]], spec)
+      expected <- intersect(spec$cols, names(df))
+      if (!length(expected)) stop("No supported columns for ", s)
+      df <- df[, expected, drop = FALSE]
+      # The client's '#N/A' placeholders denote missing optional values.
+      # Never convert a primary-key literal '#N/A' to NULL.
+      key <- UNIQUE_KEYS[[s]][[1]]
+      for (field in setdiff(names(df), key)) {
+        df[[field]][trimws(df[[field]]) %in% c("", "#N/A")] <- NA_character_
+      }
+      stage <- paste0("ieabank_stg_", gsub("[^a-zA-Z0-9]", "_", s))
+      dbWriteTable(con, stage, df, temporary = TRUE, overwrite = TRUE)
+      target <- DBI::dbQuoteIdentifier(con, DBI::Id(schema = "public", table = s))
+      qcols <- as.character(DBI::dbQuoteIdentifier(con, expected))
+      source <- vapply(expected, function(col) {
+        col_q <- as.character(DBI::dbQuoteIdentifier(con, col))
+        if (col %in% spec$bool) return(paste0("NULLIF(", col_q, ", '')::boolean"))
+        if (col %in% spec$int) return(paste0("NULLIF(", col_q, ", '')::integer"))
+        col_q
+      }, character(1))
+      updates <- setdiff(expected, key)
+      if (!length(updates)) {
+        conflict <- "DO NOTHING"
+      } else {
+        uq <- as.character(DBI::dbQuoteIdentifier(con, updates))
+        conflict <- paste0("DO UPDATE SET ", paste0(uq, " = EXCLUDED.", uq, collapse = ", "))
+      }
+      kq <- as.character(DBI::dbQuoteIdentifier(con, key))
+      query <- paste0(
+        "INSERT INTO ", target, " (", paste(qcols, collapse = ", "), ") ",
+        "SELECT ", paste(source, collapse = ", "), " FROM ",
+        as.character(DBI::dbQuoteIdentifier(con, stage)),
+        " ON CONFLICT (", paste(kq, collapse = ", "), ") ", conflict
       )
+      affected[[s]] <- as.integer(dbExecute(con, query))
+      dbExecute(con, paste("DROP TABLE", as.character(DBI::dbQuoteIdentifier(con, stage))))
     }
-
-    dbBegin(con)
-    run <- function(sql) dbExecute(con, sql)
-    has <- function(s) s %in% present
-    nvl <- function(x) sprintf("nullif(nullif(%s,''),'#N/A')", x)
-
-    if (has("admin")) {
-      run(sprintf(
-        paste0(
-          "insert into admin (admin_id,study,phase,year,instrument_name,pop,target_grade,dataset_prefix,cycle_num,modified_by) ",
-          "select admin_id,study,%s,year::smallint,%s,%s,%s,%s,%s,%s from stg_admin"
-        ),
-        nvl("phase"), nvl("instrument_name"), nvl("pop"), nvl("target_grade"),
-        nvl("dataset_prefix"), nvl("cycle_num"), mb
-      ))
+    for (pair in list(c("item_admin", "item_admin_pk"), c("index_item", "index_item_pk"))) {
+      if (!(pair[[1]] %in% present)) next
+      tbl <- as.character(DBI::dbQuoteIdentifier(con, DBI::Id(schema = "public", table = pair[[1]])))
+      seq_sql <- sprintf("SELECT pg_get_serial_sequence('%s','%s') seq", paste0("public.", pair[[1]]), pair[[2]])
+      seq_name <- dbGetQuery(con, seq_sql)$seq[[1]]
+      if (!is.na(seq_name)) {
+        max_id <- dbGetQuery(con, paste0("SELECT COALESCE(MAX(", pair[[2]], "),0) AS m FROM ", tbl))$m[[1]]
+        if (max_id > 0) dbGetQuery(con, sprintf("SELECT setval(%s,%s,true)", as.character(dbQuoteLiteral(con, seq_name)), max_id))
+      }
     }
-
-    if (has("item_category")) {
-      run(sprintf(
-        "insert into item_category (category_id,category_name,modified_by) select category_id,category_name,%s from stg_item_category",
-        mb
-      ))
-    }
-
-    if (has("item")) {
-      run(sprintf(
-        paste0(
-          "insert into item (item_uid,item_name,category_id,is_test_item,modified_by) ",
-          "select item_uid,item_name,category_id,is_test_item::boolean,%s from stg_item"
-        ),
-        mb
-      ))
-    }
-
-    if (has("miss_scheme")) {
-      run(sprintf(
-        "insert into miss_scheme (miss_id,modified_by) select miss_id,%s from stg_miss_scheme",
-        mb
-      ))
-    }
-
-    if (has("miss_scheme_values")) {
-      run(sprintf(
-        paste0(
-          "insert into miss_scheme_values (miss_id,value,category,modified_by) ",
-          "select miss_id,value,category,%s from stg_miss_scheme_values"
-        ),
-        mb
-      ))
-    }
-
-    if (has("response_scheme")) {
-      run(sprintf(
-        paste0(
-          "insert into response_scheme (response_id,is_categorical,modified_by) ",
-          "select response_id,is_categorical::boolean,%s from stg_response_scheme"
-        ),
-        mb
-      ))
-    }
-
-    if (has("response_scheme_values")) {
-      run(sprintf(
-        paste0(
-          "insert into response_scheme_values (response_id,value,label,range_min,range_max,modified_by) ",
-          "select response_id,value,nullif(label,''),",
-          "nullif(nullif(range_min,''),'#N/A')::integer,",
-          "nullif(nullif(range_max,''),'#N/A')::integer,%s ",
-          "from stg_response_scheme_values"
-        ),
-        mb
-      ))
-    }
-
-    if (has("scale")) {
-      run(
-        paste0(
-          "insert into scale (scale_uid,scale_name,is_scaled) ",
-          "select scale_uid,scale_name,is_scaled::boolean from stg_scale"
-        )
-      )
-    }
-
-    if (has("scale_version")) {
-      run(sprintf(
-        paste0(
-          "insert into scale_version (scale_id,scale_description,scale_varname,is_equated,is_puf,scale_uid,scale_var,modified_by) ",
-          "select scale_id,scale_description,scale_varname,",
-          "nullif(is_equated,'')::boolean,is_puf::boolean,scale_uid,scale_var,%s ",
-          "from stg_scale_version"
-        ),
-        mb
-      ))
-    }
-
-    if (has("item_admin")) {
-      run(sprintf(
-        paste0(
-          "insert into item_admin (",
-          "item_admin_pk,item_uid,item_var,item_id,admin_id,response_id,miss_id,type,",
-          "is_puf_quest,is_puf_data,can_request,is_final_version,varname,dataset_label,",
-          "wording_question,wording_question_add,wording_item,wording_instruction,wording_context,wording_heading,modified_by",
-          ") select ",
-          "item_admin_pk::bigint,item_uid,item_var,item_id,admin_id,",
-          "%s,%s,type,is_puf_quest::boolean,is_puf_data::boolean,can_request::boolean,is_final_version::boolean,",
-          "%s,%s,%s,%s,%s,%s,%s,%s,%s from stg_item_admin"
-        ),
-        nvl("response_id"), nvl("miss_id"), nvl("varname"), nvl("dataset_label"),
-        nvl("wording_question"), nvl("wording_question_add"), nvl("wording_item"),
-        nvl("wording_instruction"), nvl("wording_context"), nvl("wording_heading"), mb
-      ))
-    }
-
-    if (has("scale_item")) {
-      run(sprintf(
-        paste0(
-          "insert into scale_item (scale_id,scale_item_pk,item_admin_pk,modified_by) ",
-          "select scale_id,scale_item_pk::bigint,item_admin_pk::bigint,%s from stg_scale_item"
-        ),
-        mb
-      ))
-    }
-
-    if (has("item_admin")) {
-      run(
-        "select setval(pg_get_serial_sequence('item_admin','item_admin_pk'), (select max(item_admin_pk) from item_admin), true)"
-      )
-    }
-
-    if (has("scale_item")) {
-      run(
-        "select setval(pg_get_serial_sequence('scale_item','scale_item_pk'), (select max(scale_item_pk) from scale_item), true)"
-      )
-    }
-
     dbCommit(con)
-
-    for (t in stg) {
-      dbExecute(con, sprintf("drop table if exists %s", t))
-    }
-
-    list(ok = TRUE, rows = vapply(data, nrow, integer(1)))
+    list(ok = TRUE, rows = affected)
   }, error = function(e) {
     try(dbRollback(con), silent = TRUE)
-    for (t in stg) {
-      try(dbExecute(con, sprintf("drop table if exists %s", t)), silent = TRUE)
-    }
     list(ok = FALSE, msg = conditionMessage(e))
   })
 }
