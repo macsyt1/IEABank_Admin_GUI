@@ -114,16 +114,17 @@ META <- list(
       fld("phase"),
       fld("year", "smallint", TRUE),
       fld("instrument_name"),
-      fld("pop"),
+      fld("instrument_pop"),
+      fld("instrument_type"),
       fld("target_grade"),
       fld("dataset_prefix"),
       fld("cycle_num")
     )
   ),
-  item_category = list(
-    group = "Core", pk = "category_id", pk_generated = FALSE, audit = TRUE,
+  topic = list(
+    group = "Core", pk = "topic_id", pk_generated = FALSE, audit = TRUE,
     fields = list(
-      fld("category_id", "text", TRUE, pk = TRUE),
+      fld("topic_id", "text", TRUE, pk = TRUE),
       fld("category_name", "text", TRUE)
     )
   ),
@@ -133,8 +134,8 @@ META <- list(
       fld("item_uid", "text", TRUE, pk = TRUE),
       fld("item_name", "text", TRUE),
       fld(
-        "category_id", "text", TRUE,
-        fk = fk("item_category", "category_id", "category_id || ' / ' || category_name")
+        "topic_id", "text", TRUE,
+        fk = fk("topic", "topic_id", "topic_id || ' / ' || category_name")
       ),
       fld("is_test_item", "bool", TRUE)
     )
@@ -148,11 +149,10 @@ META <- list(
       fld("admin_id", "text", TRUE, fk = fk("admin", "admin_id")),
       fld("response_id", "text", fk = fk("response_scheme", "response_id")),
       fld("miss_id", "text", fk = fk("miss_scheme", "miss_id")),
-      fld("type", "text", TRUE),
-      fld("is_puf_quest", "bool", TRUE),
-      fld("is_puf_data", "bool", TRUE),
-      fld("can_request", "bool", TRUE),
-      fld("is_final_version", "bool", TRUE),
+      fld("response_type", "text", TRUE),
+      fld("is_public_itembank", "bool", TRUE),
+      fld("is_puf", "bool", TRUE),
+      fld("is_version_published", "bool", TRUE),
       fld("varname"),
       fld("dataset_label"),
       fld("wording_question"),
@@ -178,54 +178,58 @@ META <- list(
     fields = list(fld("miss_id", "text", TRUE, pk = TRUE))
   ),
   miss_scheme_values = list(
-    group = "Core", pk = c("miss_id", "value"), pk_generated = FALSE, audit = TRUE,
+    group = "Core", pk = c("miss_id", "miss_value"), pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("miss_id", "text", TRUE, pk = TRUE, fk = fk("miss_scheme", "miss_id")),
-      fld("value", "text", TRUE, pk = TRUE),
-      fld("category", "text", TRUE)
+      fld("miss_value", "text", TRUE, pk = TRUE),
+      fld("miss_description", "text", TRUE)
     )
   ),
   response_scheme = list(
     group = "Core", pk = "response_id", pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("response_id", "text", TRUE, pk = TRUE),
-      fld("is_categorical", "bool", TRUE)
+      fld("is_categorical", "bool", TRUE),
+      fld("is_checkbox", "bool")
     )
   ),
   response_scheme_values = list(
-    group = "Core", pk = c("response_id", "value"), pk_generated = FALSE, audit = TRUE,
+    group = "Core", pk = c("response_id", "response_value"), pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("response_id", "text", TRUE, pk = TRUE, fk = fk("response_scheme", "response_id")),
-      fld("value", "text", TRUE, pk = TRUE),
-      fld("label"),
+      fld("response_value", "text", TRUE, pk = TRUE),
+      fld("response_label"),
+      fld("checked_value"),
+      fld("not_checked_value"),
       fld("range_min", "integer"),
       fld("range_max", "integer")
     )
   ),
-  scale = list(
-    group = "Scales", pk = "scale_uid", pk_generated = FALSE, audit = FALSE,
+  `index` = list(
+    group = "Derived Variables", pk = "index_uid", pk_generated = FALSE, audit = FALSE,
     fields = list(
-      fld("scale_uid", "text", TRUE, pk = TRUE),
-      fld("scale_name", "text", TRUE),
+      fld("index_uid", "text", TRUE, pk = TRUE),
+      fld("index_name", "text", TRUE),
       fld("is_scaled", "bool", TRUE)
     )
   ),
-  scale_version = list(
-    group = "Scales", pk = "scale_id", pk_generated = FALSE, audit = TRUE,
+  index_version = list(
+    group = "Derived Variables", pk = "index_id", pk_generated = FALSE, audit = TRUE,
     fields = list(
-      fld("scale_id", "text", TRUE, pk = TRUE),
-      fld("scale_description", "text", TRUE),
-      fld("scale_varname", "text", TRUE),
+      fld("index_id", "text", TRUE, pk = TRUE),
+      fld("index_version_description", "text", TRUE),
+      fld("index_varname", "text", TRUE),
       fld("is_equated", "bool", FALSE),
-      fld("is_puf", "bool", TRUE),
-      fld("scale_uid", "text", TRUE, fk = fk("scale", "scale_uid", "scale_uid || ' / ' || scale_name")),
-      fld("scale_var", "text", TRUE)
+      fld("is_public_itembank", "bool", TRUE),
+      fld("is_puf", "bool"),
+      fld("index_uid", "text", TRUE, fk = fk("index", "index_uid", "index_uid || ' / ' || index_name")),
+      fld("index_var", "text", TRUE)
     )
   ),
-  scale_item = list(
-    group = "Scales", pk = "scale_item_pk", pk_generated = TRUE, audit = TRUE,
+  index_item = list(
+    group = "Derived Variables", pk = "index_item_pk", pk_generated = TRUE, audit = TRUE,
     fields = list(
-      fld("scale_id", "text", TRUE, fk = fk("scale_version", "scale_id", "scale_id || ' / ' || scale_description")),
+      fld("index_id", "text", TRUE, fk = fk("index_version", "index_id", "index_id || ' / ' || index_version_description")),
       fld("item_admin_pk", "int", TRUE, fk = fk("item_admin", "item_admin_pk", "item_id || ' / ' || admin_id"))
     )
   )
@@ -233,10 +237,10 @@ META <- list(
 
 TABLE_CHOICES <- list(
   Core = c(
-    "admin", "item_category", "item", "item_admin", "item_example",
+    "admin", "topic", "item", "item_admin", "item_example",
     "miss_scheme", "miss_scheme_values", "response_scheme", "response_scheme_values"
   ),
-  Scales = c("scale", "scale_version", "scale_item")
+  `Derived Variables` = c("index", "index_version", "index_item")
 )
 
 cast_ph <- function(i, type) {
@@ -253,7 +257,7 @@ cast_ph <- function(i, type) {
 fk_choices <- function(f) {
   sql <- sprintf(
     "select %s as v, %s as l from %s order by l",
-    f$value, f$label, f$table
+    f$value, f$label, as.character(DBI::dbQuoteIdentifier(pool, f$table))
   )
   d <- dbGetQuery(pool, sql)
   setNames(as.character(d$v), as.character(d$l))
@@ -348,77 +352,77 @@ sh <- function(cols, required, int = character(), bool = character()) {
 
 SHEET_SPEC <- list(
   admin = sh(
-    c("admin_id", "study", "phase", "year", "instrument_name", "pop", "target_grade", "dataset_prefix", "cycle_num"),
+    c("admin_id", "study", "phase", "year", "instrument_name", "instrument_type", "instrument_pop", "target_grade", "dataset_prefix", "cycle_num"),
     c("admin_id", "study", "year"),
     int = "year"
   ),
-  item_category = sh(
-    c("category_id", "category_name"),
-    c("category_id", "category_name")
+  topic = sh(
+    c("topic_id", "category_name"),
+    c("topic_id", "category_name")
   ),
   item = sh(
-    c("item_uid", "item_name", "category_id", "is_test_item"),
-    c("item_uid", "item_name", "category_id", "is_test_item"),
+    c("item_uid", "item_name", "topic_id", "is_test_item"),
+    c("item_uid", "item_name", "topic_id", "is_test_item"),
     bool = "is_test_item"
   ),
   item_admin = sh(
     c(
       "item_admin_pk", "item_uid", "item_var", "item_id", "admin_id", "response_id", "miss_id",
-      "type", "is_puf_quest", "is_puf_data", "can_request", "is_final_version",
+      "response_type", "is_public_itembank", "is_puf", "is_version_published",
       "varname", "dataset_label", "wording_question", "wording_question_add",
       "wording_item", "wording_instruction", "wording_context", "wording_heading"
     ),
     c(
-      "item_admin_pk", "item_uid", "item_var", "item_id", "admin_id", "type",
-      "is_puf_quest", "is_puf_data", "can_request", "is_final_version"
+      "item_admin_pk", "item_uid", "item_var", "item_id", "admin_id", "response_type",
+      "is_public_itembank", "is_puf", "is_version_published"
     ),
     int = "item_admin_pk",
-    bool = c("is_puf_quest", "is_puf_data", "can_request", "is_final_version")
+    bool = c("is_public_itembank", "is_puf", "is_version_published")
   ),
   response_scheme = sh(
-    c("response_id", "is_categorical"),
-    c("response_id", "is_categorical"),
-    bool = "is_categorical"
+    c("response_id", "is_categorical", "is_checkbox"),
+    c("response_id", "is_categorical", "is_checkbox"),
+    bool = c("is_categorical", "is_checkbox")
   ),
   response_scheme_values = sh(
-    c("response_id", "value", "label", "range_min", "range_max"),
-    c("response_id", "value"),
+    c("response_id", "response_value", "response_label", "checked_value", "not_checked_value", "range_min", "range_max"),
+    c("response_id", "response_value"),
     int = c("range_min", "range_max")
   ),
   miss_scheme = sh(c("miss_id"), c("miss_id")),
   miss_scheme_values = sh(
-    c("miss_id", "value", "category"),
-    c("miss_id", "value", "category")
+    c("miss_id", "miss_value", "miss_description"),
+    c("miss_id", "miss_value", "miss_description")
   ),
-  scale = sh(
-    c("scale_uid", "scale_name", "is_scaled"),
-    c("scale_uid", "scale_name", "is_scaled"),
+  `index` = sh(
+    c("index_uid", "index_name", "is_scaled"),
+    c("index_uid", "index_name", "is_scaled"),
     bool = "is_scaled"
   ),
-  scale_version = sh(
-    c("scale_id", "scale_description", "scale_varname", "is_equated", "is_puf", "scale_uid", "scale_var"),
-    c("scale_id", "scale_description", "scale_varname", "is_puf", "scale_uid", "scale_var"),
-    bool = c("is_equated", "is_puf")
+  index_version = sh(
+    c("index_id", "index_version_description", "index_varname", "is_equated", "is_public_itembank", "is_puf", "index_uid", "index_var"),
+    c("index_id", "index_version_description", "index_varname", "is_public_itembank", "index_uid", "index_var"),
+    bool = c("is_equated", "is_public_itembank", "is_puf")
   ),
-  scale_item = sh(
-    c("scale_id", "scale_item_pk", "item_admin_pk"),
-    c("scale_id", "scale_item_pk", "item_admin_pk"),
-    int = c("scale_item_pk", "item_admin_pk")
+  index_item = sh(
+    c("index_id", "index_item_pk", "item_admin_pk"),
+    c("index_id", "index_item_pk", "item_admin_pk"),
+    int = c("index_item_pk", "item_admin_pk")
   )
 )
 
 UNIQUE_KEYS <- list(
   admin = list(c("admin_id")),
-  item_category = list(c("category_id")),
+  topic = list(c("topic_id")),
   item = list(c("item_uid")),
   item_admin = list(c("item_admin_pk"), c("item_id", "admin_id")),
   response_scheme = list(c("response_id")),
-  response_scheme_values = list(c("response_id", "value")),
+  response_scheme_values = list(c("response_id", "response_value")),
   miss_scheme = list(c("miss_id")),
-  miss_scheme_values = list(c("miss_id", "value")),
-  scale = list(c("scale_uid")),
-  scale_version = list(c("scale_id")),
-  scale_item = list(c("scale_item_pk"), c("scale_id", "item_admin_pk"))
+  miss_scheme_values = list(c("miss_id", "miss_value")),
+  `index` = list(c("index_uid")),
+  index_version = list(c("index_id")),
+  index_item = list(c("index_item_pk"), c("index_id", "item_admin_pk"))
 )
 
 validate_upload <- function(path) {
@@ -456,7 +460,7 @@ validate_upload <- function(path) {
     for (rc in spec$required) {
       col <- df[[rc]]
       txt <- trimws(as.character(col))
-      allow_na_literal <- identical(s, "response_scheme_values") && identical(rc, "value")
+      allow_na_literal <- identical(s, "response_scheme_values") && identical(rc, "response_value")
       empty <- is.na(col) | !nzchar(txt) | (!allow_na_literal & toupper(txt) == "#N/A")
       if (any(empty)) {
         errs <- c(
@@ -529,174 +533,70 @@ to_staging <- function(df, spec) {
 }
 
 do_load <- function(data, modified_by) {
+  # Upsert rather than delete/reinsert: preserve foreign keys, stable IDs,
+  # and dependent material (examples, translations, calibration).
+  order <- c("admin", "topic", "item", "miss_scheme", "miss_scheme_values",
+             "response_scheme", "response_scheme_values", "index",
+             "index_version", "item_admin", "index_item")
+  present <- intersect(order, names(data))
   con <- poolCheckout(pool)
   on.exit(poolReturn(con))
-
-  mb <- dbQuoteLiteral(con, modified_by)
-  present <- names(data)
-  stg <- paste0("stg_", present)
-
-  for (t in stg) {
-    dbExecute(con, sprintf("drop table if exists %s", t))
-  }
-
+  dbBegin(con)
   tryCatch({
+    affected <- setNames(integer(length(present)), present)
     for (s in present) {
-      dbWriteTable(
-        con,
-        paste0("stg_", s),
-        to_staging(data[[s]], SHEET_SPEC[[s]]),
-        temporary = TRUE,
-        overwrite = TRUE
+      spec <- SHEET_SPEC[[s]]
+      df <- to_staging(data[[s]], spec)
+      expected <- intersect(spec$cols, names(df))
+      if (!length(expected)) stop("No supported columns for ", s)
+      df <- df[, expected, drop = FALSE]
+      # The client's '#N/A' placeholders denote missing optional values.
+      # Never convert a primary-key literal '#N/A' to NULL.
+      key <- UNIQUE_KEYS[[s]][[1]]
+      for (field in setdiff(names(df), key)) {
+        df[[field]][trimws(df[[field]]) %in% c("", "#N/A")] <- NA_character_
+      }
+      stage <- paste0("ieabank_stg_", gsub("[^a-zA-Z0-9]", "_", s))
+      dbWriteTable(con, stage, df, temporary = TRUE, overwrite = TRUE)
+      target <- DBI::dbQuoteIdentifier(con, DBI::Id(schema = "public", table = s))
+      qcols <- as.character(DBI::dbQuoteIdentifier(con, expected))
+      source <- vapply(expected, function(col) {
+        col_q <- as.character(DBI::dbQuoteIdentifier(con, col))
+        if (col %in% spec$bool) return(paste0("NULLIF(", col_q, ", '')::boolean"))
+        if (col %in% spec$int) return(paste0("NULLIF(", col_q, ", '')::integer"))
+        col_q
+      }, character(1))
+      updates <- setdiff(expected, key)
+      if (!length(updates)) {
+        conflict <- "DO NOTHING"
+      } else {
+        uq <- as.character(DBI::dbQuoteIdentifier(con, updates))
+        conflict <- paste0("DO UPDATE SET ", paste0(uq, " = EXCLUDED.", uq, collapse = ", "))
+      }
+      kq <- as.character(DBI::dbQuoteIdentifier(con, key))
+      query <- paste0(
+        "INSERT INTO ", target, " (", paste(qcols, collapse = ", "), ") ",
+        "SELECT ", paste(source, collapse = ", "), " FROM ",
+        as.character(DBI::dbQuoteIdentifier(con, stage)),
+        " WHERE TRUE ON CONFLICT (", paste(kq, collapse = ", "), ") ", conflict
       )
+      affected[[s]] <- as.integer(dbExecute(con, query))
+      dbExecute(con, paste("DROP TABLE", as.character(DBI::dbQuoteIdentifier(con, stage))))
     }
-
-    dbBegin(con)
-    run <- function(sql) dbExecute(con, sql)
-    has <- function(s) s %in% present
-    nvl <- function(x) sprintf("nullif(nullif(%s,''),'#N/A')", x)
-
-    if (has("admin")) {
-      run(sprintf(
-        paste0(
-          "insert into admin (admin_id,study,phase,year,instrument_name,pop,target_grade,dataset_prefix,cycle_num,modified_by) ",
-          "select admin_id,study,%s,year::smallint,%s,%s,%s,%s,%s,%s from stg_admin"
-        ),
-        nvl("phase"), nvl("instrument_name"), nvl("pop"), nvl("target_grade"),
-        nvl("dataset_prefix"), nvl("cycle_num"), mb
-      ))
+    for (pair in list(c("item_admin", "item_admin_pk"), c("index_item", "index_item_pk"))) {
+      if (!(pair[[1]] %in% present)) next
+      tbl <- as.character(DBI::dbQuoteIdentifier(con, DBI::Id(schema = "public", table = pair[[1]])))
+      seq_sql <- sprintf("SELECT pg_get_serial_sequence('%s','%s') seq", paste0("public.", pair[[1]]), pair[[2]])
+      seq_name <- dbGetQuery(con, seq_sql)$seq[[1]]
+      if (!is.na(seq_name)) {
+        max_id <- dbGetQuery(con, paste0("SELECT COALESCE(MAX(", pair[[2]], "),0) AS m FROM ", tbl))$m[[1]]
+        if (max_id > 0) dbGetQuery(con, sprintf("SELECT setval(%s,%s,true)", as.character(dbQuoteLiteral(con, seq_name)), max_id))
+      }
     }
-
-    if (has("item_category")) {
-      run(sprintf(
-        "insert into item_category (category_id,category_name,modified_by) select category_id,category_name,%s from stg_item_category",
-        mb
-      ))
-    }
-
-    if (has("item")) {
-      run(sprintf(
-        paste0(
-          "insert into item (item_uid,item_name,category_id,is_test_item,modified_by) ",
-          "select item_uid,item_name,category_id,is_test_item::boolean,%s from stg_item"
-        ),
-        mb
-      ))
-    }
-
-    if (has("miss_scheme")) {
-      run(sprintf(
-        "insert into miss_scheme (miss_id,modified_by) select miss_id,%s from stg_miss_scheme",
-        mb
-      ))
-    }
-
-    if (has("miss_scheme_values")) {
-      run(sprintf(
-        paste0(
-          "insert into miss_scheme_values (miss_id,value,category,modified_by) ",
-          "select miss_id,value,category,%s from stg_miss_scheme_values"
-        ),
-        mb
-      ))
-    }
-
-    if (has("response_scheme")) {
-      run(sprintf(
-        paste0(
-          "insert into response_scheme (response_id,is_categorical,modified_by) ",
-          "select response_id,is_categorical::boolean,%s from stg_response_scheme"
-        ),
-        mb
-      ))
-    }
-
-    if (has("response_scheme_values")) {
-      run(sprintf(
-        paste0(
-          "insert into response_scheme_values (response_id,value,label,range_min,range_max,modified_by) ",
-          "select response_id,value,nullif(label,''),",
-          "nullif(nullif(range_min,''),'#N/A')::integer,",
-          "nullif(nullif(range_max,''),'#N/A')::integer,%s ",
-          "from stg_response_scheme_values"
-        ),
-        mb
-      ))
-    }
-
-    if (has("scale")) {
-      run(
-        paste0(
-          "insert into scale (scale_uid,scale_name,is_scaled) ",
-          "select scale_uid,scale_name,is_scaled::boolean from stg_scale"
-        )
-      )
-    }
-
-    if (has("scale_version")) {
-      run(sprintf(
-        paste0(
-          "insert into scale_version (scale_id,scale_description,scale_varname,is_equated,is_puf,scale_uid,scale_var,modified_by) ",
-          "select scale_id,scale_description,scale_varname,",
-          "nullif(is_equated,'')::boolean,is_puf::boolean,scale_uid,scale_var,%s ",
-          "from stg_scale_version"
-        ),
-        mb
-      ))
-    }
-
-    if (has("item_admin")) {
-      run(sprintf(
-        paste0(
-          "insert into item_admin (",
-          "item_admin_pk,item_uid,item_var,item_id,admin_id,response_id,miss_id,type,",
-          "is_puf_quest,is_puf_data,can_request,is_final_version,varname,dataset_label,",
-          "wording_question,wording_question_add,wording_item,wording_instruction,wording_context,wording_heading,modified_by",
-          ") select ",
-          "item_admin_pk::bigint,item_uid,item_var,item_id,admin_id,",
-          "%s,%s,type,is_puf_quest::boolean,is_puf_data::boolean,can_request::boolean,is_final_version::boolean,",
-          "%s,%s,%s,%s,%s,%s,%s,%s,%s from stg_item_admin"
-        ),
-        nvl("response_id"), nvl("miss_id"), nvl("varname"), nvl("dataset_label"),
-        nvl("wording_question"), nvl("wording_question_add"), nvl("wording_item"),
-        nvl("wording_instruction"), nvl("wording_context"), nvl("wording_heading"), mb
-      ))
-    }
-
-    if (has("scale_item")) {
-      run(sprintf(
-        paste0(
-          "insert into scale_item (scale_id,scale_item_pk,item_admin_pk,modified_by) ",
-          "select scale_id,scale_item_pk::bigint,item_admin_pk::bigint,%s from stg_scale_item"
-        ),
-        mb
-      ))
-    }
-
-    if (has("item_admin")) {
-      run(
-        "select setval(pg_get_serial_sequence('item_admin','item_admin_pk'), (select max(item_admin_pk) from item_admin), true)"
-      )
-    }
-
-    if (has("scale_item")) {
-      run(
-        "select setval(pg_get_serial_sequence('scale_item','scale_item_pk'), (select max(scale_item_pk) from scale_item), true)"
-      )
-    }
-
     dbCommit(con)
-
-    for (t in stg) {
-      dbExecute(con, sprintf("drop table if exists %s", t))
-    }
-
-    list(ok = TRUE, rows = vapply(data, nrow, integer(1)))
+    list(ok = TRUE, rows = affected)
   }, error = function(e) {
     try(dbRollback(con), silent = TRUE)
-    for (t in stg) {
-      try(dbExecute(con, sprintf("drop table if exists %s", t)), silent = TRUE)
-    }
     list(ok = FALSE, msg = conditionMessage(e))
   })
 }
@@ -1027,7 +927,7 @@ server <- function(input, output, session) {
     sql <- sprintf(
       "select %s from %s order by %s",
       paste(cols, collapse = ", "),
-      input$table,
+      as.character(DBI::dbQuoteIdentifier(pool, input$table)),
       paste(m$pk, collapse = ", ")
     )
     dbGetQuery(pool, sql)
@@ -1177,7 +1077,7 @@ server <- function(input, output, session) {
 
         sql <- sprintf(
           "insert into %s (%s) values (%s)",
-          input$table,
+          as.character(DBI::dbQuoteIdentifier(pool, input$table)),
           paste(insert_cols, collapse = ", "),
           paste(placeholders, collapse = ", ")
         )
@@ -1210,7 +1110,7 @@ server <- function(input, output, session) {
 
         sql <- sprintf(
           "update %s set %s where %s",
-          input$table,
+          as.character(DBI::dbQuoteIdentifier(pool, input$table)),
           paste(sets, collapse = ", "),
           where
         )
@@ -1274,7 +1174,7 @@ server <- function(input, output, session) {
     result <- tryCatch({
       dbExecute(
         pool,
-        sprintf("delete from %s where %s", input$table, where),
+        sprintf("delete from %s where %s", as.character(DBI::dbQuoteIdentifier(pool, input$table)), where),
         params = unname(as.list(pkvals))
       )
       "ok"
@@ -1341,7 +1241,7 @@ server <- function(input, output, session) {
       showModal(
         modalDialog(
           title = "Upload complete",
-          paste(sprintf("%s: +%d", names(res$rows), res$rows), collapse = " · "),
+          paste(sprintf("%s: %d upserted", names(res$rows), res$rows), collapse = " · "),
           easyClose = TRUE,
           footer = modalButton("Close")
         )
@@ -1351,7 +1251,7 @@ server <- function(input, output, session) {
     } else {
       showModal(
         modalDialog(
-          title = "Returned data (no rows were added)",
+          title = "Import aborted (transaction rolled back)",
           tags$pre(res$msg),
           easyClose = TRUE,
           footer = modalButton("Close")
