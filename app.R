@@ -401,7 +401,7 @@ SHEET_SPEC <- list(
   ),
   index_version = sh(
     c("index_id", "index_version_description", "index_varname", "is_equated", "is_public_itembank", "is_puf", "index_uid", "index_var"),
-    c("index_id", "index_version_description", "index_varname", "is_puf", "index_uid", "index_var"),
+    c("index_id", "index_version_description", "index_varname", "is_public_itembank", "index_uid", "index_var"),
     bool = c("is_equated", "is_public_itembank", "is_puf")
   ),
   index_item = sh(
@@ -578,7 +578,7 @@ do_load <- function(data, modified_by) {
         "INSERT INTO ", target, " (", paste(qcols, collapse = ", "), ") ",
         "SELECT ", paste(source, collapse = ", "), " FROM ",
         as.character(DBI::dbQuoteIdentifier(con, stage)),
-        " ON CONFLICT (", paste(kq, collapse = ", "), ") ", conflict
+        " WHERE TRUE ON CONFLICT (", paste(kq, collapse = ", "), ") ", conflict
       )
       affected[[s]] <- as.integer(dbExecute(con, query))
       dbExecute(con, paste("DROP TABLE", as.character(DBI::dbQuoteIdentifier(con, stage))))
