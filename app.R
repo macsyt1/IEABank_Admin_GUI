@@ -257,7 +257,7 @@ cast_ph <- function(i, type) {
 fk_choices <- function(f) {
   sql <- sprintf(
     "select %s as v, %s as l from %s order by l",
-    f$value, f$label, f$table
+    f$value, f$label, as.character(DBI::dbQuoteIdentifier(pool, f$table))
   )
   d <- dbGetQuery(pool, sql)
   setNames(as.character(d$v), as.character(d$l))
@@ -927,7 +927,7 @@ server <- function(input, output, session) {
     sql <- sprintf(
       "select %s from %s order by %s",
       paste(cols, collapse = ", "),
-      input$table,
+      as.character(DBI::dbQuoteIdentifier(pool, input$table)),
       paste(m$pk, collapse = ", ")
     )
     dbGetQuery(pool, sql)
@@ -1077,7 +1077,7 @@ server <- function(input, output, session) {
 
         sql <- sprintf(
           "insert into %s (%s) values (%s)",
-          input$table,
+          as.character(DBI::dbQuoteIdentifier(pool, input$table)),
           paste(insert_cols, collapse = ", "),
           paste(placeholders, collapse = ", ")
         )
@@ -1110,7 +1110,7 @@ server <- function(input, output, session) {
 
         sql <- sprintf(
           "update %s set %s where %s",
-          input$table,
+          as.character(DBI::dbQuoteIdentifier(pool, input$table)),
           paste(sets, collapse = ", "),
           where
         )
@@ -1174,7 +1174,7 @@ server <- function(input, output, session) {
     result <- tryCatch({
       dbExecute(
         pool,
-        sprintf("delete from %s where %s", input$table, where),
+        sprintf("delete from %s where %s", as.character(DBI::dbQuoteIdentifier(pool, input$table)), where),
         params = unname(as.list(pkvals))
       )
       "ok"
@@ -1241,7 +1241,7 @@ server <- function(input, output, session) {
       showModal(
         modalDialog(
           title = "Upload complete",
-          paste(sprintf("%s: +%d", names(res$rows), res$rows), collapse = " · "),
+          paste(sprintf("%s: %d upserted", names(res$rows), res$rows), collapse = " · "),
           easyClose = TRUE,
           footer = modalButton("Close")
         )
@@ -1251,7 +1251,7 @@ server <- function(input, output, session) {
     } else {
       showModal(
         modalDialog(
-          title = "Returned data (no rows were added)",
+          title = "Import aborted (transaction rolled back)",
           tags$pre(res$msg),
           easyClose = TRUE,
           footer = modalButton("Close")
