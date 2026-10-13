@@ -460,7 +460,7 @@ validate_upload <- function(path) {
     for (rc in spec$required) {
       col <- df[[rc]]
       txt <- trimws(as.character(col))
-      allow_na_literal <- identical(s, "response_scheme_values") && identical(rc, "value")
+      allow_na_literal <- identical(s, "response_scheme_values") && identical(rc, "response_value")
       empty <- is.na(col) | !nzchar(txt) | (!allow_na_literal & toupper(txt) == "#N/A")
       if (any(empty)) {
         errs <- c(
