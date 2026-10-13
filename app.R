@@ -203,7 +203,7 @@ META <- list(
     )
   ),
   scale = list(
-    group = "Scales", pk = "scale_uid", pk_generated = FALSE, audit = FALSE,
+    group = "Derived Variables", pk = "scale_uid", pk_generated = FALSE, audit = FALSE,
     fields = list(
       fld("scale_uid", "text", TRUE, pk = TRUE),
       fld("scale_name", "text", TRUE),
@@ -211,7 +211,7 @@ META <- list(
     )
   ),
   scale_version = list(
-    group = "Scales", pk = "scale_id", pk_generated = FALSE, audit = TRUE,
+    group = "Derived Variables", pk = "scale_id", pk_generated = FALSE, audit = TRUE,
     fields = list(
       fld("scale_id", "text", TRUE, pk = TRUE),
       fld("scale_description", "text", TRUE),
@@ -223,7 +223,7 @@ META <- list(
     )
   ),
   scale_item = list(
-    group = "Scales", pk = "scale_item_pk", pk_generated = TRUE, audit = TRUE,
+    group = "Derived Variables", pk = "scale_item_pk", pk_generated = TRUE, audit = TRUE,
     fields = list(
       fld("scale_id", "text", TRUE, fk = fk("scale_version", "scale_id", "scale_id || ' / ' || scale_description")),
       fld("item_admin_pk", "int", TRUE, fk = fk("item_admin", "item_admin_pk", "item_id || ' / ' || admin_id"))
@@ -236,7 +236,7 @@ TABLE_CHOICES <- list(
     "admin", "item_category", "item", "item_admin", "item_example",
     "miss_scheme", "miss_scheme_values", "response_scheme", "response_scheme_values"
   ),
-  Scales = c("scale", "scale_version", "scale_item")
+  `Derived Variables` = c("scale", "scale_version", "scale_item")
 )
 
 cast_ph <- function(i, type) {
