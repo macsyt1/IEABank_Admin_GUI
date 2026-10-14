@@ -692,6 +692,7 @@ portal_ui <- function() {
         tagList(icon("upload"), "Upload Excel"),
         class = "iea-navbtn"
       ),
+      actionButton("nav_feedback",tagList(icon("comment-dots"),"Feedback review"),class="iea-navbtn"),
       actionButton(
         "change_password_btn",
         tagList(icon("key"), "Change password"),
@@ -743,6 +744,19 @@ portal_ui <- function() {
             width = "100%"
           ),
           uiOutput("load_ui")
+        )
+      ),
+      nav_panel("feedback",
+        card(
+          card_header("Feedback reports — private moderation"),
+          p("Review reports and screenshots before publishing an issue. Screenshots and email addresses are never automatically posted to GitHub."),
+          actionButton("feedback_refresh","Refresh",class="btn-outline-secondary"),
+          DTOutput("feedback_grid"),
+          hr(),
+          uiOutput("feedback_detail"),
+          div(style="display:flex;gap:10px;flex-wrap:wrap;",
+            actionButton("feedback_publish","Approve and publish GitHub issue",class="btn-primary"),
+            actionButton("feedback_reject","Reject report",class="btn-outline-danger"))
         )
       )
     )
@@ -911,6 +925,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$nav_edit, nav_select("mode", "edit"))
   observeEvent(input$nav_load, nav_select("mode", "load"))
+  observeEvent(input$nav_feedback, nav_select("mode", "feedback"))
 
   refresh <- reactiveVal(0)
 
@@ -1259,6 +1274,87 @@ server <- function(input, output, session) {
       )
     }
   })
+  feedback_refresh_counter <- reactiveVal(0L)
+  observeEvent(input$feedback_refresh, feedback_refresh_counter(feedback_refresh_counter()+1L))
+  feedback_data <- reactive({
+    req(current_user())
+    feedback_refresh_counter()
+    tryCatch(DBI::dbGetQuery(pool,
+      "SELECT report_id, created_at, report_type, section, title, status, github_issue_url FROM public.feedback_reports ORDER BY created_at DESC LIMIT 500"),
+      error=function(e){message("Feedback load failed: ",conditionMessage(e));data.frame()})
+  })
+  output$feedback_grid <- renderDT({
+    datatable(feedback_data(),selection="single",rownames=FALSE,
+      options=list(pageLength=15,scrollX=TRUE))
+  })
+  selected_feedback <- reactive({
+    rows <- input$feedback_grid_rows_selected
+    current <- feedback_data()
+    if(length(rows)!=1 || rows<1 || rows>nrow(current))return(NULL)
+    id <- current$report_id[[rows]]
+    x <- DBI::dbGetQuery(pool,
+      "SELECT report_id, report_type, section, title, description, contact_email, status,
+              screenshot, screenshot_mime, github_issue_url, reviewer_notes
+       FROM public.feedback_reports WHERE report_id=$1",params=list(as.integer(id)))
+    if(nrow(x)!=1)return(NULL)
+    x
+  })
+  output$feedback_detail <- renderUI({
+    r<-selected_feedback()
+    if(is.null(r))return(p("Select a report to inspect it."))
+    shot<-r$screenshot[[1]]
+    image_ui<-NULL
+    if(length(shot)>0 && !is.null(shot) && !is.na(r$screenshot_mime[[1]])){
+      image_ui<-tags$img(src=paste0("data:",r$screenshot_mime[[1]],";base64,",jsonlite::base64_enc(shot)),
+                          style="max-width:100%;max-height:430px;border:1px solid #ddd;")
+    }
+    tagList(h4(r$title[[1]]),p(strong("Type: "),r$report_type[[1]]," · ",strong("Section: "),r$section[[1]],
+          " · ",strong("Status: "),r$status[[1]]),
+      tags$pre(style="white-space:pre-wrap",r$description[[1]]),
+      if(!is.na(r$contact_email[[1]]))p("Contact (internal only): ",r$contact_email[[1]]),
+      image_ui,
+      textAreaInput("feedback_reviewer_notes","Internal reviewer notes",value=r$reviewer_notes[[1]] %||% "",rows=3),
+      if(!is.na(r$github_issue_url[[1]]))tags$a(href=r$github_issue_url[[1]],target="_blank","View published GitHub issue"))
+  })
+  observeEvent(input$feedback_reject,{
+    if(!require_author())return()
+    r<-selected_feedback();req(r)
+    if(r$status[[1]]!="pending"){showNotification("Only pending reports can be rejected.",type="warning");return()}
+    DBI::dbExecute(pool,
+      "UPDATE public.feedback_reports SET status='rejected',reviewed_at=now(),reviewed_by=$1,reviewer_notes=$2
+       WHERE report_id=$3 AND status='pending'",
+      params=list(current_user_name(),input$feedback_reviewer_notes %||% "",as.integer(r$report_id[[1]])))
+    feedback_refresh_counter(feedback_refresh_counter()+1L)
+    showNotification("Report rejected.",type="message")
+  })
+  observeEvent(input$feedback_publish,{
+    if(!require_author())return()
+    r<-selected_feedback();req(r)
+    if(!identical(r$status[[1]],"pending")){showNotification("Only pending reports can be published.",type="warning");return()}
+    token<-Sys.getenv("GITHUB_ISSUES_TOKEN")
+    if(!nzchar(token)){showNotification("Configure GITHUB_ISSUES_TOKEN on the Admin server before publishing.",type="error",duration=8);return()}
+    # Do not send optional reporter email, images, or reviewer notes to public GitHub.
+    body<-paste0("**Type:** ",r$report_type[[1]],"\n**Section:** ",r$section[[1]],
+                "\n**Source:** IEA Item Bank Explorer feedback form\n\n",r$description[[1]],
+                "\n\n_Reviewed by RandA before publication. Screenshot retained privately._")
+    published<-tryCatch({
+      response<-httr2::request("https://api.github.com/repos/macsyt1/IEABank_User_GUI/issues") |>
+        httr2::req_method("POST") |>
+        httr2::req_headers(Authorization=paste("Bearer",token),Accept="application/vnd.github+json",
+                           `X-GitHub-Api-Version`="2022-11-28") |>
+        httr2::req_body_json(list(title=paste0("[IEABank] ",r$title[[1]]),body=body)) |>
+        httr2::req_perform()
+      httr2::resp_body_json(response)$html_url
+    },error=function(e){message("GitHub issue publication failed: ",conditionMessage(e));NULL})
+    if(is.null(published)){showNotification("GitHub issue publication failed; report remains pending.",type="error",duration=8);return()}
+    DBI::dbExecute(pool,
+      "UPDATE public.feedback_reports SET status='published',github_issue_url=$1,reviewed_at=now(),
+       reviewed_by=$2,reviewer_notes=$3 WHERE report_id=$4 AND status='pending'",
+       params=list(published,current_user_name(),input$feedback_reviewer_notes %||% "",as.integer(r$report_id[[1]])))
+    feedback_refresh_counter(feedback_refresh_counter()+1L)
+    showNotification("GitHub issue published.",type="message",duration=5)
+  })
+
 }
 
 shinyApp(ui, server)
