@@ -16,7 +16,7 @@ library(jsonlite)
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0) b else a
 
-APP_VERSION <- "1.3.0"
+APP_VERSION <- "1.3.1"
 IEA_RED  <- "#E2231A"
 IEA_GRAY <- "#54565A"
 
@@ -753,10 +753,12 @@ portal_ui <- function() {
           actionButton("feedback_refresh","Refresh",class="btn-outline-secondary"),
           DTOutput("feedback_grid"),
           hr(),
-          uiOutput("feedback_detail"),
-          div(style="display:flex;gap:10px;flex-wrap:wrap;",
+          h4("Selected report — review actions"),
+          p("Select a pending report in the table, inspect its details below, then approve or reject it."),
+          div(style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 18px;",
             actionButton("feedback_publish","Approve and publish GitHub issue",class="btn-primary"),
-            actionButton("feedback_reject","Reject report",class="btn-outline-danger"))
+            actionButton("feedback_reject","Reject report",class="btn-outline-danger")),
+          uiOutput("feedback_detail")
         )
       )
     )
